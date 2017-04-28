@@ -130,7 +130,7 @@ void Weighted_Demorgan_right(image det, float demo_thresh, float demo_thresh_low
 									//if demorgan law's prob > 0.2, draw box
 									if(demorgan > 0.2){
 										if(voc_labels) draw_label(det, box_right[2] + box_right[4], box_right[0], voc_labels[obj_class_right], rgb);
-										draw_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
+										draw_weighted_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
 										char Text[30];
 										sprintf(Text, "%.2f", demorgan);
 										IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -156,7 +156,7 @@ void Weighted_Demorgan_right(image det, float demo_thresh, float demo_thresh_low
 							//if demorgan law's prob > 0.2, draw box
 							if(demorgan > 0.2){
 								if(voc_labels) draw_label(det, box_right[2] + box_right[4], box_right[0], voc_labels[obj_class_right], rgb);
-								draw_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
+								draw_weighted_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
 								char Text[30];
 								sprintf(Text, "%.2f", demorgan);
 								IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -253,7 +253,7 @@ void Weighted_Demorgan_right(image det, float demo_thresh, float demo_thresh_low
 									//if demorgan law's prob > 0.2, draw box
 									if(demorgan > 0.2){
 										if(voc_labels) draw_label(det, box_right[2] + box_right[4], box_right[0], voc_labels[obj_class_right], rgb);
-										draw_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
+										draw_weighted_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
 										char Text[30];
 										sprintf(Text, "%.2f", demorgan);
 										IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -279,7 +279,7 @@ void Weighted_Demorgan_right(image det, float demo_thresh, float demo_thresh_low
 							//if demorgan law's prob > 0.2, draw box
 							if(demorgan > 0.2){
 								if(voc_labels) draw_label(det, box_right[2] + box_right[4], box_right[0], voc_labels[obj_class_right], rgb);
-								draw_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
+								draw_weighted_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
 								char Text[30];
 								sprintf(Text, "%.2f", demorgan);
 								IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -384,7 +384,7 @@ void Weighted_Demorgan_right(image det, float demo_thresh, float demo_thresh_low
 							//if demorgan law's prob > 0.2, draw box
 							if(demorgan > 0.2){
 								if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
-								draw_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
+								draw_weighted_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
 								char Text[30];
 								sprintf(Text, "%.2f", demorgan);
 								IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -441,7 +441,7 @@ void Weighted_Demorgan_right(image det, float demo_thresh, float demo_thresh_low
 					int box_up[5] = {0};
 					get_upbox_in_rightROI(det, box_up, prob_up, boxes_up, i);
 					if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
-					draw_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
+					draw_weighted_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
 					char Text[30];
 					sprintf(Text, "%.2f", prob_up);
 					IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -532,7 +532,7 @@ void Weighted_Demorgan_right(image det, float demo_thresh, float demo_thresh_low
 					int box_left[5] = {0};
 					get_leftbox_in_rightROI(det, box_left, prob_left, boxes_left, i);
                     if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
-                    draw_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
+                    draw_weighted_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
 					char Text[30];
 					sprintf(Text, "%.2f", prob_left);
 					IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -674,7 +674,7 @@ void Weighted_Demorgan_left(image det, float demo_thresh, float demo_thresh_low,
 									//if demorgan law's prob > 0.2, draw box
 									if(demorgan > 0.2){
 										if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
-										draw_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
+										draw_weighted_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
 										char Text[30];
 										sprintf(Text, "%.2f", demorgan);
 										IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -700,7 +700,7 @@ void Weighted_Demorgan_left(image det, float demo_thresh, float demo_thresh_low,
 							//if demorgan law's prob > 0.2, draw box
 							if(demorgan > 0.2){
 								if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
-								draw_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
+								draw_weighted_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
 								char Text[30];
 								sprintf(Text, "%.2f", demorgan);
 								IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -797,7 +797,7 @@ void Weighted_Demorgan_left(image det, float demo_thresh, float demo_thresh_low,
 									//if demorgan law's prob > 0.2, draw box
 									if(demorgan > 0.2){
 										if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
-										draw_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
+										draw_weighted_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
 										char Text[30];
 										sprintf(Text, "%.2f", demorgan);
 										IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -823,7 +823,7 @@ void Weighted_Demorgan_left(image det, float demo_thresh, float demo_thresh_low,
 							//if demorgan law's prob > 0.2, draw box
 							if(demorgan > 0.2){
 								if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
-								draw_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
+								draw_weighted_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
 								char Text[30];
 								sprintf(Text, "%.2f", demorgan);
 								IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -929,7 +929,7 @@ void Weighted_Demorgan_left(image det, float demo_thresh, float demo_thresh_low,
 							//if demorgan law's prob > 0.2, draw box
 							if(demorgan > 0.2){
 								if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
-								draw_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
+								draw_weighted_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
 								char Text[30];
 								sprintf(Text, "%.2f", demorgan);
 								IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -986,7 +986,7 @@ void Weighted_Demorgan_left(image det, float demo_thresh, float demo_thresh_low,
 					int box_up[5] = {0};
 					get_upbox_in_leftROI(det, box_up, prob_up, boxes_up, i);
 					if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
-					draw_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
+					draw_weighted_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
 					char Text[30];
 					sprintf(Text, "%.2f", prob_up);
 					IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -1077,7 +1077,7 @@ void Weighted_Demorgan_left(image det, float demo_thresh, float demo_thresh_low,
 					int box_right[5] = {0};
 					get_rightbox_in_leftROI(det, box_right, prob_right, boxes_right, i);
                     if(voc_labels) draw_label(det, box_right[2] + box_right[4], box_right[0], voc_labels[obj_class_right], rgb);
-                    draw_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
+                    draw_weighted_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
 					char Text[30];
 					sprintf(Text, "%.2f", prob_right);
 					IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -1219,7 +1219,7 @@ void Weighted_Demorgan_up(image det, float demo_thresh, float demo_thresh_low, f
 									//if demorgan law's prob > 0.2, draw box
 									if(demorgan > 0.2){
 										if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
-										draw_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
+										draw_weighted_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
 										char Text[30];
 										sprintf(Text, "%.2f", demorgan);
 										IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -1245,7 +1245,7 @@ void Weighted_Demorgan_up(image det, float demo_thresh, float demo_thresh_low, f
 							//if demorgan law's prob > 0.2, draw box
 							if(demorgan > 0.2){
 								if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
-								draw_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
+								draw_weighted_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
 								char Text[30];
 								sprintf(Text, "%.2f", demorgan);
 								IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -1342,7 +1342,7 @@ void Weighted_Demorgan_up(image det, float demo_thresh, float demo_thresh_low, f
 									//if demorgan law's prob > 0.2, draw box
 									if(demorgan > 0.2){
 										if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
-										draw_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
+										draw_weighted_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
 										char Text[30];
 										sprintf(Text, "%.2f", demorgan);
 										IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -1368,7 +1368,7 @@ void Weighted_Demorgan_up(image det, float demo_thresh, float demo_thresh_low, f
 							//if demorgan law's prob > 0.2, draw box
 							if(demorgan > 0.2){
 								if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
-								draw_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
+								draw_weighted_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
 								char Text[30];
 								sprintf(Text, "%.2f", demorgan);
 								IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -1473,7 +1473,7 @@ void Weighted_Demorgan_up(image det, float demo_thresh, float demo_thresh_low, f
 							//if demorgan law's prob > 0.2, draw box
 							if(demorgan > 0.2){
 								if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
-								draw_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
+								draw_weighted_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
 								char Text[30];
 								sprintf(Text, "%.2f", demorgan);
 								IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -1530,7 +1530,7 @@ void Weighted_Demorgan_up(image det, float demo_thresh, float demo_thresh_low, f
 					int box_left[5] = {0};
 					get_leftbox_in_upROI(det, box_left, prob_left, boxes_left, i);
 					if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
-					draw_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
+					draw_weighted_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
 					char Text[30];
 					sprintf(Text, "%.2f", prob_left);
 					IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
@@ -1621,7 +1621,7 @@ void Weighted_Demorgan_up(image det, float demo_thresh, float demo_thresh_low, f
 					int box_right[5] = {0};
 					get_rightbox_in_upROI(det, box_right, prob_right, boxes_right, i);
                     if(voc_labels) draw_label(det, box_right[2] + box_right[4], box_right[0], voc_labels[obj_class_right], rgb);
-                    draw_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
+                    draw_weighted_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
 					char Text[30];
 					sprintf(Text, "%.2f", prob_right);
 					IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
