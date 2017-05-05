@@ -5,7 +5,7 @@ extern IplImage* image_to_Ipl(image img, int w, int h, int depth, int c, int ste
 extern image ipl_to_image(IplImage* src);
 
 //#define DRAW_OVERLAP_PROB
-
+#define WEIGHT 10 //use 10~60 to define distance weight coefficient, 0 means normal
 
 //***********************************************
 //         Weighted De morgan law - Right
@@ -16,11 +16,40 @@ void Weighted_Demorgan_right(image det, float demo_thresh, float demo_thresh_low
 	float rgb[3] = {0.0};
 	float overlap1_thresh = 0.5, overlap2_thresh = 0.25;
 
+#if WEIGHT == 10
+	float weight_left = 84.3/(84.3+65.2+15.2)*3;
+	float weight_up = 65.2/(84.3+65.2+15.2)*3;
+	float weight_right = 15.2/(84.3+65.2+15.2)*3;
+#elif WEIGHT == 20
+	float weight_left = 86.9/(86.9+85.2+83.2)*3;
+	float weight_up = 85.2/(86.9+85.2+83.2)*3;
+	float weight_right = 83.2/(86.9+85.2+83.2)*3;
+#elif WEIGHT == 30
+	float weight_left = 73.4/(73.4+86.9+85.4)*3;
+	float weight_up = 86.9/(73.4+86.9+85.4)*3;
+	float weight_right = 85.4/(73.4+86.9+85.4)*3;
+#elif WEIGHT == 40
+	float weight_left = 52.5/(52.5+86.7+84.6)*3;
+	float weight_up = 86.7/(52.5+86.7+84.6)*3;
+	float weight_right = 84.6/(52.5+86.7+84.6)*3;
+#elif WEIGHT == 50
 	float weight_left = 16.5/(16.5+70.6+84.8)*3;
 	float weight_up = 70.6/(16.5+70.6+84.8)*3;
 	float weight_right = 84.8/(16.5+70.6+84.8)*3;
-	
-	
+#elif WEIGHT == 60
+	float weight_left = 4.5/(4.5+42.3+84.3)*3;
+	float weight_up = 42.3/(4.5+42.3+84.3)*3;
+	float weight_right = 84.3/(4.5+42.3+84.3)*3;
+#elif WEIGHT == 70
+	float weight_left = 0/(0+13.1+65.7)*3;
+	float weight_up = 13.1/(0+13.1+65.7)*3;
+	float weight_right = 65.7/(0+13.1+65.7)*3;
+#elif WEIGHT == 0
+	float weight_left = 1;
+	float weight_up = 1;
+	float weight_right = 1;
+#endif
+
 	//enhance the prediction
 	// for each box in right
 	for(i = 0; i < num; ++i){
@@ -561,9 +590,39 @@ void Weighted_Demorgan_left(image det, float demo_thresh, float demo_thresh_low,
 	float rgb[3] = {0.0};
 	float overlap1_thresh = 0.5, overlap2_thresh = 0.25;
 	
+#if WEIGHT  == 10
+	float weight_left = 84.3/(84.3+65.2+15.2)*3;
+	float weight_up = 65.2/(84.3+65.2+15.2)*3;
+	float weight_right = 15.2/(84.3+65.2+15.2)*3;
+#elif WEIGHT == 20
+	float weight_left = 86.9/(86.9+85.2+83.2)*3;
+	float weight_up = 85.2/(86.9+85.2+83.2)*3;
+	float weight_right = 83.2/(86.9+85.2+83.2)*3;
+#elif WEIGHT == 30
+	float weight_left = 73.4/(73.4+86.9+85.4)*3;
+	float weight_up = 86.9/(73.4+86.9+85.4)*3;
+	float weight_right = 85.4/(73.4+86.9+85.4)*3;
+#elif WEIGHT == 40
+	float weight_left = 52.5/(52.5+86.7+84.6)*3;
+	float weight_up = 86.7/(52.5+86.7+84.6)*3;
+	float weight_right = 84.6/(52.5+86.7+84.6)*3;
+#elif WEIGHT == 50
 	float weight_left = 16.5/(16.5+70.6+84.8)*3;
 	float weight_up = 70.6/(16.5+70.6+84.8)*3;
 	float weight_right = 84.8/(16.5+70.6+84.8)*3;
+#elif WEIGHT == 60
+	float weight_left = 4.5/(4.5+42.3+84.3)*3;
+	float weight_up = 42.3/(4.5+42.3+84.3)*3;
+	float weight_right = 84.3/(4.5+42.3+84.3)*3;
+#elif WEIGHT == 70
+	float weight_left = 0/(0+13.1+65.7)*3;
+	float weight_up = 13.1/(0+13.1+65.7)*3;
+	float weight_right = 65.7/(0+13.1+65.7)*3;
+#elif WEIGHT == 0
+	float weight_left = 1;
+	float weight_up = 1;
+	float weight_right = 1;
+#endif
 	
 	//enhance the prediction
 	// for each box in left
@@ -1106,9 +1165,39 @@ void Weighted_Demorgan_up(image det, float demo_thresh, float demo_thresh_low, f
 	float rgb[3] = {0.0};
 	float overlap1_thresh = 0.5, overlap2_thresh = 0.25;
 	
+#if WEIGHT  == 10
+	float weight_left = 84.3/(84.3+65.2+15.2)*3;
+	float weight_up = 65.2/(84.3+65.2+15.2)*3;
+	float weight_right = 15.2/(84.3+65.2+15.2)*3;
+#elif WEIGHT == 20
+	float weight_left = 86.9/(86.9+85.2+83.2)*3;
+	float weight_up = 85.2/(86.9+85.2+83.2)*3;
+	float weight_right = 83.2/(86.9+85.2+83.2)*3;
+#elif WEIGHT == 30
+	float weight_left = 73.4/(73.4+86.9+85.4)*3;
+	float weight_up = 86.9/(73.4+86.9+85.4)*3;
+	float weight_right = 85.4/(73.4+86.9+85.4)*3;
+#elif WEIGHT == 40
+	float weight_left = 52.5/(52.5+86.7+84.6)*3;
+	float weight_up = 86.7/(52.5+86.7+84.6)*3;
+	float weight_right = 84.6/(52.5+86.7+84.6)*3;
+#elif WEIGHT == 50
 	float weight_left = 16.5/(16.5+70.6+84.8)*3;
 	float weight_up = 70.6/(16.5+70.6+84.8)*3;
 	float weight_right = 84.8/(16.5+70.6+84.8)*3;
+#elif WEIGHT == 60
+	float weight_left = 4.5/(4.5+42.3+84.3)*3;
+	float weight_up = 42.3/(4.5+42.3+84.3)*3;
+	float weight_right = 84.3/(4.5+42.3+84.3)*3;
+#elif WEIGHT == 70
+	float weight_left = 0/(0+13.1+65.7)*3;
+	float weight_up = 13.1/(0+13.1+65.7)*3;
+	float weight_right = 65.7/(0+13.1+65.7)*3;
+#elif WEIGHT == 0
+	float weight_left = 1;
+	float weight_up = 1;
+	float weight_right = 1;
+#endif
 	
 	//enhance the prediction
 	// for each box in up

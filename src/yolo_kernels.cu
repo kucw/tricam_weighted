@@ -90,12 +90,14 @@ struct timeval start_time;
 
 //========== control parameter ==================
 
-int frame_counter = 200;
+//int frame_counter = 200; //demo frame counter
+int frame_counter = 0;
 //#define DRAW_CONVERT
 //#define DRAW_LOW_THRESHOLD_DETECTION
 //#define DEMORGAN_RIGHT
 //#define WEIGHTED_DEMORGAN_RIGHT
-//#define FRAME_BY_FRAME
+#define FRAME_BY_FRAME
+#define BOTH_DEMORGAN
 
 //===============================================
 
@@ -414,13 +416,14 @@ extern "C" void demo_yolo(char *cfgfile, char *weightfile, float thresh, int cam
 				Demorgan_right(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n);
 #endif
 
+#ifdef BOTH_DEMORGAN
 				Weighted_Demorgan_right(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n);
 				Weighted_Demorgan_left(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n);
 				Weighted_Demorgan_up(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n);
 				Demorgan_right(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n);
 				Demorgan_left(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n);
 				Demorgan_up(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n);
-				
+#endif
 			}
 
 			
