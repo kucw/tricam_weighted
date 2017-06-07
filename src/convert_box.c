@@ -30,8 +30,8 @@ void convert_leftbox_to_rightROI(image det, float prob, box *boxes, image *label
 	//resize the box
 	left += 238;
 	right += 238;
-	top += 550;
-	bot += 550;
+	top += 400;
+	bot += 400;
 
 	float a1 = 4.5;
 	int b1 = -711;
@@ -159,8 +159,8 @@ void convert_leftbox_to_upROI(image det, float prob, box *boxes, image *labels, 
 	//resize the box
 	left += 238;
 	right += 238;
-	top += 550;
-	bot += 550;
+	top += 400;
+	bot += 400;
 	
 	float a1 = 2.2;
 	int b1 = 20;
@@ -394,6 +394,16 @@ void convert_rightbox_to_upROI(image det, float prob, box *boxes, image *labels,
 }
 
 
+void get_normal_box_color(float* rgb, int obj_class, int CLS_NUM){
+	int offset = obj_class*17 % CLS_NUM;
+	float red = get_color(0,offset,CLS_NUM);
+	float green = get_color(1,offset,CLS_NUM);
+	float blue = get_color(2,offset,CLS_NUM);
+	rgb[0] = red;
+	rgb[1] = green;
+	rgb[2] = blue;
+}
+
 void get_demorgan_box_color(float* rgb, int obj_class, int CLS_NUM){
 	int offset = obj_class*17 % CLS_NUM;
 	float red = get_color2(0,offset,CLS_NUM);
@@ -414,6 +424,16 @@ void get_weighted_demorgan_box_color(float* rgb, int obj_class, int CLS_NUM){
 	rgb[2] = blue;
 }
 
+void get_weighted_power_demorgan_box_color(float* rgb, int obj_class, int CLS_NUM){
+	int offset = obj_class*17 % CLS_NUM;
+	float red = get_color5(0,offset,CLS_NUM);
+	float green = get_color5(1,offset,CLS_NUM);
+	float blue = get_color5(2,offset,CLS_NUM);
+	rgb[0] = red;
+	rgb[1] = green;
+	rgb[2] = blue;
+}
+
 void get_leftbox_in_leftROI(image det, int *output, float prob, box *boxes, int i){
 	int width = pow(prob, 1./2.)*10+1;
 	box b = boxes[i];
@@ -428,8 +448,8 @@ void get_leftbox_in_leftROI(image det, int *output, float prob, box *boxes, int 
 	if(bot > det.h-1) bot = 448-1;
 	left += 238;
 	right += 238;
-	top += 550;
-	bot += 550;
+	top += 400;
+	bot += 400;
 	
 	output[0] = left;
 	output[1] = right;
@@ -545,8 +565,8 @@ void get_leftbox_in_rightROI(image det, int *output, float prob, box *boxes, int
 	//resize the box
 	left += 238;
 	right += 238;
-	top += 550;
-	bot += 550;
+	top += 400;
+	bot += 400;
 
 	float a1 = 4.5;
 	int b1 = -711;
@@ -659,8 +679,8 @@ void get_leftbox_in_upROI(image det, int *output, float prob, box *boxes, int i)
 	//resize the box
 	left += 238;
 	right += 238;
-	top += 550;
-	bot += 550;
+	top += 400;
+	bot += 400;
 	
 	float a1 = 2.2;
 	int b1 = 20;

@@ -27,7 +27,10 @@ void convert_rightbox_to_upROI(image det, float prob, box *boxes, image *labels,
 //==================================
 //		get demorgan box color
 //==================================
+void get_normal_box_color(float* rgb, int obj_class, int CLS_NUM);
 void get_demorgan_box_color(float* rgb, int obj_class, int CLS_NUM);
+void get_weighted_demorgan_box_color(float* rgb, int obj_class, int CLS_NUM);
+void get_weighted_power_demorgan_box_color(float* rgb, int obj_class, int CLS_NUM);
 
 //==================================
 //		get box in other ROI
