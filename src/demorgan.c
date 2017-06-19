@@ -6,7 +6,7 @@ extern IplImage* image_to_Ipl(image img, int w, int h, int depth, int c, int ste
 extern image ipl_to_image(IplImage* src);
 
 //#define DRAW_OVERLAP_PROB
-#define WEIGHT 70 //use 10~60 to define distance weight coefficient, 0 means normal
+#define WEIGHT 30 //use 10~60 to define distance weight coefficient, 0 means normal
 
 #if WEIGHT == 10
 	float weight_left = 84.3/(84.3+65.2+15.2)*3;
@@ -43,693 +43,16 @@ extern image ipl_to_image(IplImage* src);
 #endif
 
 
-
-//*****************************************************************
-//         Weighted De morgan law - Right	(Power version)
-//*****************************************************************
-void Weighted_Demorgan_Power_right(image det, float demo_thresh, float demo_thresh_low, float **probs_right, float **probs_left, float **probs_up, box *boxes_right, box *boxes_left, box *boxes_up, char**voc_names, image *voc_labels, int CLS_NUM, int num, int frame_counter, int map[][450][5]){
-	
-	int i,j,k;
-	float rgb[3] = {0.0};
-	float overlap1_thresh = 0.5, overlap2_thresh = 0.25;
-
-	//enhance the prediction
-	// for each box in right
-	for(i = 0; i < num; ++i){
-		int obj_class_right = max_index(probs_right[i], CLS_NUM);
-		float prob_right = probs_right[i][obj_class_right];
-		get_weighted_power_demorgan_box_color(rgb, obj_class_right, CLS_NUM);
-		if(voc_names[obj_class_right] == "car" && prob_right > demo_thresh_low && prob_right < demo_thresh){
-			// do De morgan law to all box in up
-			for (j = 0; j < num; j++){
-				int obj_class_up = max_index(probs_up[j], CLS_NUM);
-				float prob_up = probs_up[j][obj_class_up];
-				if(voc_names[obj_class_up] == "car" && prob_up > demo_thresh_low){
-					//check intersaction area
-					int box_up[5] = {0}, box_right[5] = {0};
-					int x, y, box_right_area = 0, box_up_area = 0;
-					int intersaction1 = 0;
-					get_upbox_in_rightROI(det, box_up, prob_up, boxes_up, j);
-					get_rightbox_in_rightROI(det, box_right, prob_right, boxes_right, i);
-					box_right_area = (box_right[1] - box_right[0]) * (box_right[3] - box_right[2]);
-					box_up_area = (box_up[1] - box_up[0]) * (box_up[3] - box_up[2]);
-
-					for (y = 630; y<=1078; y++){
-						for (x = 1130; x<=1578; x++){
-							if ( box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y
-								&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y )
-								intersaction1++;
-						}
-					}
-
-					float overlap1 = (float)intersaction1/(float)(box_right_area + box_up_area - intersaction1);
-		
-#ifdef DRAW_OVERLAP_PROB
-					// draw overlap1 percentage
-					char Text[30];
-					sprintf(Text, "overlap1: %.2f%s", overlap1*100,"%");
-					IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-					CvFont font2;
-					CvPoint TextPos;
-					//TextPos.x = (box_right[0]+box_right[1])/2; TextPos.y = box_right[2];
-					TextPos.x = 1250; TextPos.y = 580;
-					cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-					cvPutText(text , Text , TextPos , &font2 , CV_RGB(0,255,0));	
-					image d = ipl_to_image(text);  
-					memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-					free_image(d);
-					cvReleaseImage(&text);
-#endif
-
-					//if intersaction overlap1 > thresh, do Demorgan law to all box in left
-					if(overlap1 > overlap1_thresh){
-						int get_overlap2_flag = 0;
-						for (k = 0; k < num; k++){
-							int obj_class_left = max_index(probs_left[k], CLS_NUM);
-							float prob_left = probs_left[k][obj_class_left];
-							if(voc_names[obj_class_left] == "car" && prob_left > demo_thresh_low){
-								int box_left[5] = {0};
-								int x, y, box_left_area = 0;
-								int inter_right_up = 0, inter_left_up = 0, inter_left_right = 0, intersaction2 = 0;
-								get_leftbox_in_rightROI(det, box_left, prob_left, boxes_left, k);
-								box_left_area = (box_left[1] - box_left[0]) * (box_left[3] - box_left[2]);
-
-								for (y = 630; y<=1078; y++){
-									for (x = 1130; x<=1578 ; x++){
-										if ( box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y
-											&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y
-											&& box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y )
-											intersaction2++;
-
-										if ( box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y
-											&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y)
-											inter_right_up++;
-
-										if ( box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y
-											&& box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y)
-											inter_left_up++;
-
-										if ( box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y
-											&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y)
-											inter_left_right++;
-									}
-								}
-
-								float overlap2 = (float)intersaction2/(float)(box_right_area + box_up_area + box_left_area - inter_right_up - inter_left_up - inter_left_right + intersaction2);
-						
-#ifdef DRAW_OVERLAP_PROB
-								// draw overlap percentage
-								char Text[30];
-								sprintf(Text, "overlap2: %.2f%s", overlap2*100, "%");
-								IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-								CvFont font2;
-								CvPoint TextPos;
-								//TextPos.x = (box_right[0]+box_right[1])/2; TextPos.y = box_right[2];
-								TextPos.x = 1250; TextPos.y = 620;
-								cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-								cvPutText(text , Text , TextPos , &font2 , CV_RGB(0,255,0));	
-								image d = ipl_to_image(text);  
-								memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-								free_image(d);
-								cvReleaseImage(&text);
-#endif				
-								
-								if(overlap2 > overlap2_thresh){
-									get_overlap2_flag = 1;
-									float demorgan;
-									demorgan = 1 - pow((1-prob_up), weight_up) * pow((1-prob_right), weight_right) * pow((1-prob_left), weight_left);
-
-									//if demorgan law's prob > 0.2, draw box
-									if(demorgan > 0.2){
-										// remove false positive
-										int x, y, w, count = 0;
-										for(y=box_right[2]; y<box_right[3]; y++){
-											for(x=box_right[0]; x<box_right[1]; x++){
-												int buffer_count = 0;
-												for(w=0; w<5; w++){
-													if(map[y-630][x-1130][w] == 1)
-														buffer_count++;
-												}
-												if(buffer_count >= 3)
-													count++;
-												map[y-630][x-1130][frame_counter%5] = 1;
-											}
-										}
-								
-										float area = (float)count/(float)box_right_area;
-								
-										if(area > 0.6){	
-											if(voc_labels) draw_label(det, box_right[2] + box_right[4], box_right[0], voc_labels[obj_class_right], rgb);
-											draw_weighted_power_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
-											char Text[30];
-											sprintf(Text, "%.2f", demorgan);
-											IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-											CvFont font2;
-											CvPoint TextPos;
-											TextPos.x = (box_right[0]+box_right[1])/2; TextPos.y = box_right[2];
-											cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-											cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-											image d = ipl_to_image(text);  
-											memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-											free_image(d);
-											cvReleaseImage(&text);										
-										}
-									}
-								}
-							}
-						}
-
-						// if all overlap1 > overlap1_thesh but overlap2 < overlap2_thresh
-						if (get_overlap2_flag != 1){
-							float demorgan;
-							demorgan = 1 - pow((1-prob_up), weight_up) * pow((1-prob_right), weight_right);
-
-							//if demorgan law's prob > 0.2, draw box
-							if(demorgan > 0.2){
-								// remove false positive
-								int x, y, w,count = 0;
-								for(y=box_right[2]; y<box_right[3]; y++){
-									for(x=box_right[0]; x<box_right[1]; x++){
-										int buffer_count = 0;
-										for(w=0; w<5; w++){
-											if(map[y-630][x-1130][w] == 1)
-												buffer_count++;
-										}
-										if(buffer_count >= 3)
-											count++;
-										map[y-630][x-1130][frame_counter%5] = 1;
-									}
-								}
-						
-								float area = (float)count/(float)box_right_area;
-						
-								if(area > 0.6){	
-									if(voc_labels) draw_label(det, box_right[2] + box_right[4], box_right[0], voc_labels[obj_class_right], rgb);
-									draw_weighted_power_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
-									char Text[30];
-									sprintf(Text, "%.2f", demorgan);
-									IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-									CvFont font2;
-									CvPoint TextPos;
-									TextPos.x = (box_right[0]+box_right[1])/2; TextPos.y = box_right[2];
-									cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-									cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-									image d = ipl_to_image(text);  
-									memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-									free_image(d);
-									cvReleaseImage(&text);										
-								}
-							}
-						}
-					}
-
-					// if the overlap1 < overlap1_thresh, continue
-				}
-			}
-		}
-	}
-
-	// for each box in right
-	for(i = 0; i < num; ++i){
-		int obj_class_right = max_index(probs_right[i], CLS_NUM);
-		float prob_right = probs_right[i][obj_class_right];
-		get_weighted_power_demorgan_box_color(rgb, obj_class_right, CLS_NUM);
-		if(voc_names[obj_class_right] == "car" && prob_right > demo_thresh_low && prob_right < demo_thresh){
-			// do De morgan law to all box in left
-			for (j = 0; j < num; j++){
-				int obj_class_left = max_index(probs_left[j], CLS_NUM);
-				float prob_left = probs_left[j][obj_class_left];
-				if(voc_names[obj_class_left] == "car" && prob_left > demo_thresh_low){
-					//check intersaction area
-					int box_left[5] = {0}, box_right[5] = {0};
-					int x, y, box_right_area = 0, box_left_area = 0;
-					int intersaction1 = 0;
-					get_leftbox_in_rightROI(det, box_left, prob_left, boxes_left, j);
-					get_rightbox_in_rightROI(det, box_right, prob_right, boxes_right, i);
-					box_right_area = (box_right[1] - box_right[0]) * (box_right[3] - box_right[2]);
-					box_left_area = (box_left[1] - box_left[0]) * (box_left[3] - box_left[2]);
-
-					for (y = 630; y<=1078; y++){
-						for (x = 1130; x<=1578; x++){
-							if ( box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y
-								&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y )
-								intersaction1++;
-						}
-					}
-
-					float overlap1 = (float)intersaction1/(float)(box_right_area + box_left_area - intersaction1);
-		
-					//if intersaction overlap1 > overlap1_thresh, do Demorgan law to all box in up
-					if(overlap1 > overlap1_thresh){
-						int get_overlap2_flag = 0;
-						for (k = 0; k < num; k++){
-							int obj_class_up = max_index(probs_up[k], CLS_NUM);
-							float prob_up = probs_up[k][obj_class_up];
-							if(voc_names[obj_class_up] == "car" && prob_up > demo_thresh_low){
-								int box_up[5] = {0};
-								int x, y, box_up_area = 0;
-								int inter_right_up = 0, inter_left_up = 0, inter_left_right = 0, intersaction2 = 0;
-								get_upbox_in_rightROI(det, box_up, prob_up, boxes_up, k);
-								box_up_area = (box_up[1] - box_up[0]) * (box_up[3] - box_up[2]);
-
-								for (y = 630; y<=1078; y++){
-									for (x = 1130; x<=1578 ; x++){
-										if ( box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y
-											&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y
-											&& box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y )
-											intersaction2++;
-
-										if ( box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y
-											&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y)
-											inter_right_up++;
-
-										if ( box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y
-											&& box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y)
-											inter_left_up++;
-
-										if ( box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y
-											&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y)
-											inter_left_right++;
-									}
-								}
-
-								float overlap2 = (float)intersaction2/(float)(box_right_area + box_up_area + box_left_area - inter_right_up - inter_left_up - inter_left_right + intersaction2);
-						
-								if(overlap2 > overlap2_thresh){
-									get_overlap2_flag = 1;
-									float demorgan;
-									demorgan = 1 - pow((1-prob_up), weight_up) * pow((1-prob_right), weight_right) * pow((1-prob_left), weight_left);
-
-									//if demorgan law's prob > 0.2, draw box
-									if(demorgan > 0.2){
-										// remove false positive
-										int x, y, w, count = 0;
-										for(y=box_right[2]; y<box_right[3]; y++){
-											for(x=box_right[0]; x<box_right[1]; x++){
-												int buffer_count = 0;
-												for(w=0; w<5; w++){
-													if(map[y-630][x-1130][w] == 1)
-														buffer_count++;
-												}
-												if(buffer_count >= 3)
-													count++;
-												map[y-630][x-1130][frame_counter%5] = 1;
-											}
-										}
-								
-										float area = (float)count/(float)box_right_area;
-								
-										if(area > 0.6){	
-											if(voc_labels) draw_label(det, box_right[2] + box_right[4], box_right[0], voc_labels[obj_class_right], rgb);
-											draw_weighted_power_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
-											char Text[30];
-											sprintf(Text, "%.2f", demorgan);
-											IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-											CvFont font2;
-											CvPoint TextPos;
-											TextPos.x = (box_right[0]+box_right[1])/2; TextPos.y = box_right[2];
-											cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-											cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-											image d = ipl_to_image(text);  
-											memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-											free_image(d);
-											cvReleaseImage(&text);										
-										}
-									}
-								}
-							}
-						}
-
-						// if all overlap1 > overlap1_thesh but overlap2 < overlap2_thresh
-						if (get_overlap2_flag != 1){
-							float demorgan;
-							demorgan = 1 - pow((1-prob_right), weight_right) * pow((1-prob_left), weight_left);
-						
-							//if demorgan law's prob > 0.2, draw box
-							if(demorgan > 0.2){
-								// remove false positive
-								int x, y, w, count = 0;
-								for(y=box_right[2]; y<box_right[3]; y++){
-									for(x=box_right[0]; x<box_right[1]; x++){
-										int buffer_count = 0;
-										for(w=0; w<5; w++){
-											if(map[y-630][x-1130][w] == 1)
-												buffer_count++;
-										}
-										if(buffer_count >= 3)
-											count++;
-										map[y-630][x-1130][frame_counter%5] = 1;
-									}
-								}
-						
-								float area = (float)count/(float)box_right_area;
-						
-								if(area > 0.6){	
-									if(voc_labels) draw_label(det, box_right[2] + box_right[4], box_right[0], voc_labels[obj_class_right], rgb);
-									draw_weighted_power_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
-									char Text[30];
-									sprintf(Text, "%.2f", demorgan);
-									IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-									CvFont font2;
-									CvPoint TextPos;
-									TextPos.x = (box_right[0]+box_right[1])/2; TextPos.y = box_right[2];
-									cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-									cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-									image d = ipl_to_image(text);  
-									memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-									free_image(d);
-									cvReleaseImage(&text);										
-								}
-							}
-						}
-					}
-
-					// if the overlap1 < overlap1_thresh, continue
-				}
-			}
-		}
-	}
-	
-	
-	// for each box in up
-	for(i = 0; i < num; ++i){
-		int obj_class_up = max_index(probs_up[i], CLS_NUM);
-		float prob_up = probs_up[i][obj_class_up];
-		get_weighted_power_demorgan_box_color(rgb, obj_class_up, CLS_NUM);
-		int flag = 2;
-		if(voc_names[obj_class_up] == "car" && prob_up > demo_thresh_low){
-			// do De morgan law to all box in left
-			for (j = 0; j < num; j++){
-				int obj_class_left = max_index(probs_left[j], CLS_NUM);
-				float prob_left = probs_left[j][obj_class_left];
-				if(voc_names[obj_class_left] == "car" && prob_left > demo_thresh_low){
-					//check intersaction area
-					int box_left[5] = {0}, box_up[5] = {0};
-					int x, y, box_up_area = 0, box_left_area = 0;
-					int intersaction1 = 0;
-					get_leftbox_in_rightROI(det, box_left, prob_left, boxes_left, j);
-					get_upbox_in_rightROI(det, box_up, prob_up, boxes_up, i);
-					box_up_area = (box_up[1] - box_up[0]) * (box_up[3] - box_up[2]);
-					box_left_area = (box_left[1] - box_left[0]) * (box_left[3] - box_left[2]);
-
-					for (y = 630; y<=1078; y++){
-						for (x = 1130; x<=1578; x++){
-							if ( box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y
-								&& box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y )
-								intersaction1++;
-						}
-					}
-
-					float overlap1 = (float)intersaction1/(float)(box_up_area + box_left_area - intersaction1);
-		
-					if(overlap1 > overlap1_thresh){
-						flag--;
-						int get_overlap2_flag = 0;
-						for (k = 0; k < num; k++){
-							int obj_class_right = max_index(probs_right[k], CLS_NUM);
-							float prob_right = probs_right[k][obj_class_right];
-							if(voc_names[obj_class_right] == "car" && prob_right > demo_thresh_low){
-								int box_right[5] = {0};
-								int x, y, box_right_area = 0;
-								int inter_right_up = 0, inter_left_up = 0, inter_left_right = 0, intersaction2 = 0;
-								get_rightbox_in_rightROI(det, box_right, prob_right, boxes_right, k);
-								box_right_area = (box_right[1] - box_right[0]) * (box_right[3] - box_right[2]);
-
-								for (y = 630; y<=1078; y++){
-									for (x = 1130; x<=1578; x++){
-										if ( box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y
-											&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y
-											&& box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y )
-											intersaction2++;
-
-										if ( box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y
-											&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y)
-											inter_right_up++;
-
-										if ( box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y
-											&& box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y)
-											inter_left_up++;
-
-										if ( box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y
-											&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y)
-											inter_left_right++;
-									}
-								}
-
-								float overlap2 = (float)intersaction2/(float)(box_right_area + box_up_area + box_left_area - inter_right_up - inter_left_up - inter_left_right + intersaction2);
-						
-								if(overlap2 > overlap2_thresh){
-									get_overlap2_flag = 1;
-								}
-							}
-						}
-
-						// if all overlap1 > overlap1_thesh but overlap2 < overlap2_thresh
-						if (get_overlap2_flag != 1){
-							float demorgan;
-							demorgan = 1 - pow((1-prob_up), weight_up) * pow((1-prob_left), weight_left);
-
-							//if demorgan law's prob > 0.2, draw box
-							if(demorgan > 0.2){
-								// remove false positive
-								int x, y, w, count = 0;
-								for(y=box_up[2]; y<box_up[3]; y++){
-									for(x=box_up[0]; x<box_up[1]; x++){
-										int buffer_count = 0;
-										for(w=0; w<5; w++){
-											if(map[y-630][x-1130][w] == 1)
-												buffer_count++;
-										}
-										if(buffer_count >= 3)
-											count++;
-										map[y-630][x-1130][frame_counter%5] = 1;
-									}
-								}
-						
-								float area = (float)count/(float)box_up_area;
-						
-								if(area > 0.6){	
-									if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
-									draw_weighted_power_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
-									char Text[30];
-									sprintf(Text, "%.2f", demorgan);
-									IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-									CvFont font2;
-									CvPoint TextPos;
-									TextPos.x = (box_up[0]+box_up[1])/2; TextPos.y = box_up[2];
-									cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-									cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-									image d = ipl_to_image(text);  
-									memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-									free_image(d);
-									cvReleaseImage(&text);										
-								}
-							}
-						}
-					}
-				}
-			}
-
-
-			// do De morgan law to all box in right
-			for (j = 0; j < num; j++){
-				int obj_class_right = max_index(probs_right[j], CLS_NUM);
-				float prob_right = probs_right[j][obj_class_right];
-				if(voc_names[obj_class_right] == "car" && prob_right > demo_thresh_low){
-					//check intersaction area
-					int box_right[5] = {0}, box_up[5] = {0};
-					int x, y, box_up_area = 0, box_right_area = 0;
-					int intersaction1 = 0;
-					get_rightbox_in_rightROI(det, box_right, prob_right, boxes_right, j);
-					get_upbox_in_rightROI(det, box_up, prob_up, boxes_up, i);
-					box_up_area = (box_up[1] - box_up[0]) * (box_up[3] - box_up[2]);
-					box_right_area = (box_right[1] - box_right[0]) * (box_right[3] - box_right[2]);
-
-					for (y = 630; y<=1078; y++){
-						for (x = 1130; x<=1578; x++){
-							if ( box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y
-								&& box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y )
-								intersaction1++;
-						}
-					}
-
-					float overlap1 = (float)intersaction1/(float)(box_up_area + box_right_area - intersaction1);
-
-					if(overlap1 > overlap1_thresh){
-						flag--;	
-					}
-				}
-			}
-		
-
-			if (flag == 2){
-				//if the others overlap1 < overlap1_thresh, check prob_up
-				if (prob_up > demo_thresh){
-					int box_up[5] = {0}, box_up_area = 0;
-					get_upbox_in_rightROI(det, box_up, prob_up, boxes_up, i);
-					box_up_area = (box_up[1] - box_up[0]) * (box_up[3] - box_up[2]);
-					
-					// remove false positive
-					int x, y, w, count = 0;
-					for(y=box_up[2]; y<box_up[3]; y++){
-						for(x=box_up[0]; x<box_up[1]; x++){
-							int buffer_count = 0;
-							for(w=0; w<5; w++){
-								if(map[y-630][x-1130][w] == 1)
-									buffer_count++;
-							}
-							if(buffer_count >= 3)
-								count++;
-							map[y-630][x-1130][frame_counter%5] = 1;
-						}
-					}
-			
-					float area = (float)count/(float)box_up_area;
-			
-					if(area > 0.6){	
-						if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
-						draw_weighted_power_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
-						char Text[30];
-						sprintf(Text, "%.2f", prob_up);
-						IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-						CvFont font2;
-						CvPoint TextPos;
-						TextPos.x = (box_up[0]+box_up[1])/2; TextPos.y = box_up[2];
-						cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-						cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-						image d = ipl_to_image(text);  
-						memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-						free_image(d);
-						cvReleaseImage(&text);										
-					}
-				}
-			}
-		}
-	}
-	
-    // for each box in left
-	for(i = 0; i < num; ++i){
-		int obj_class_left = max_index(probs_left[i], CLS_NUM);
-		float prob_left = probs_left[i][obj_class_left];
-		get_weighted_power_demorgan_box_color(rgb, obj_class_left, CLS_NUM);
-		int flag = 2;
-		if(voc_names[obj_class_left] == "car" && prob_left > demo_thresh_low){
-			// do De morgan law to all box in up
-			for (j = 0; j < num; j++){
-				int obj_class_up = max_index(probs_up[j], CLS_NUM);
-				float prob_up = probs_up[j][obj_class_up];
-				if(voc_names[obj_class_up] == "car" && prob_up > demo_thresh_low){
-					//check intersaction area
-					int box_left[5] = {0}, box_up[5] = {0};
-					int x, y, box_up_area = 0, box_left_area = 0;
-					int intersaction1 = 0;
-					get_leftbox_in_rightROI(det, box_left, prob_left, boxes_left, j);
-					get_upbox_in_rightROI(det, box_up, prob_up, boxes_up, i);
-					box_up_area = (box_up[1] - box_up[0]) * (box_up[3] - box_up[2]);
-					box_left_area = (box_left[1] - box_left[0]) * (box_left[3] - box_left[2]);
-
-					for (y = 630; y<=1078; y++){
-						for (x = 1130; x<=1578; x++){
-							if ( box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y
-								&& box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y )
-								intersaction1++;
-						}
-					}
-
-					float overlap1 = (float)intersaction1/(float)(box_up_area + box_left_area - intersaction1);
-		
-					if(overlap1 > overlap1_thresh){
-						flag--;
-					}
-				}
-			}
-
-			// do De morgan law to all box in right
-			for (j = 0; j < num; j++){
-				int obj_class_right = max_index(probs_right[j], CLS_NUM);
-				float prob_right = probs_right[j][obj_class_right];
-				if(voc_names[obj_class_right] == "car" && prob_right > demo_thresh_low){
-					//check intersaction area
-					int box_right[5] = {0}, box_left[5] = {0};
-					int x, y, box_left_area = 0, box_right_area = 0;
-					int intersaction1 = 0;
-					get_rightbox_in_rightROI(det, box_right, prob_right, boxes_right, j);
-					get_leftbox_in_rightROI(det, box_left, prob_left, boxes_left, i);
-					box_left_area = (box_left[1] - box_left[0]) * (box_left[3] - box_left[2]);
-					box_right_area = (box_right[1] - box_right[0]) * (box_right[3] - box_right[2]);
-
-					for (y = 630; y<=1078; y++){
-						for (x = 1130; x<=1578; x++){
-							if ( box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y
-								&& box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y )
-								intersaction1++;
-						}
-					}
-
-					float overlap1 = (float)intersaction1/(float)(box_left_area + box_right_area - intersaction1);
-	
-					if(overlap1 > overlap1_thresh){
-						flag--;	
-					}
-				}
-			}
-
-			if (flag == 2){
-				//if the others overlap1 < overlap1_thresh, check prob_left
-				if (prob_left > demo_thresh){
-					int box_left[5] = {0}, box_left_area = 0;
-					get_leftbox_in_rightROI(det, box_left, prob_left, boxes_left, i);
-					box_left_area = (box_left[1] - box_left[0]) * (box_left[3] - box_left[2]);
-					
-					// remove false positive
-					int x, y, w, count = 0;
-					for(y=box_left[2]; y<box_left[3]; y++){
-						for(x=box_left[0]; x<box_left[1]; x++){
-							int buffer_count = 0;
-							for(w=0; w<5; w++){
-								if(map[y-630][x-1130][w] == 1)
-									buffer_count++;
-							}
-							if(buffer_count >= 3)
-								count++;
-							map[y-630][x-1130][frame_counter%5] = 1;
-						}
-					}
-			
-					float area = (float)count/(float)box_left_area;
-			
-					if(area > 0.6){	
-						if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
-						draw_weighted_power_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
-						char Text[30];
-						sprintf(Text, "%.2f", prob_left);
-						IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-						CvFont font2;
-						CvPoint TextPos;
-						TextPos.x = (box_left[0]+box_left[1])/2; TextPos.y = box_left[2];
-						cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-						cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-						image d = ipl_to_image(text);  
-						memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-						free_image(d);
-						cvReleaseImage(&text);										
-					}
-				}
-			}
-		}
-	}
-}
-
-
 //*****************************************************************
 //         Weighted De morgan law - Left	(Power version)
 //*****************************************************************
-void Weighted_Demorgan_Power_left(image det, float demo_thresh, float demo_thresh_low, float **probs_right, float **probs_left, float **probs_up, box *boxes_right, box *boxes_left, box *boxes_up, char**voc_names, image *voc_labels, int CLS_NUM, int num){
+void Weighted_Demorgan_Power_left(image det, float demo_thresh, float demo_thresh_low, float **probs_right, float **probs_left, float **probs_up, box *boxes_right, box *boxes_left, box *boxes_up, char**voc_names, image *voc_labels, int CLS_NUM, int num, int frame_counter, int map[][450][5]){
 	
 	int i,j,k;
 	float rgb[3] = {0.0};
 	float overlap1_thresh = 0.5, overlap2_thresh = 0.25;
-	
+	float false_positive_area_thresh = -1;
+
 	//enhance the prediction
 	// for each box in left
 	for(i = 0; i < num; ++i){
@@ -838,20 +161,40 @@ void Weighted_Demorgan_Power_left(image det, float demo_thresh, float demo_thres
 
 									//if demorgan law's prob > 0.2, draw box
 									if(demorgan > 0.2){
-										if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
-										draw_weighted_power_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
-										char Text[30];
-										sprintf(Text, "%.2f", demorgan);
-										IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-										CvFont font2;
-										CvPoint TextPos;
-										TextPos.x = (box_left[0]+box_left[1])/2; TextPos.y = box_left[2];
-										cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-										cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-										image d = ipl_to_image(text);  
-										memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-										free_image(d);
-										cvReleaseImage(&text);										
+										// remove false positive
+										int x, y, w, count = 0;
+										for(y=box_left[2]; y<box_left[3]; y++){
+											for(x=box_left[0]; x<box_left[1]; x++){
+												int buffer_count = 0;
+												for(w=0; w<5; w++){
+													if(map[y-550][x-238][w] == 1)
+														buffer_count++;
+												}
+												if(buffer_count >= 3)
+													count++;
+												map[y-550][x-238][frame_counter%5] = 1;
+											}
+										}
+								
+										int box_left_area = (box_left[1] - box_left[0]) * (box_left[3] - box_left[2]);
+										float area = (float)count/(float)box_left_area;
+										
+										if(area > false_positive_area_thresh){
+											if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
+											draw_weighted_power_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
+											char Text[30];
+											sprintf(Text, "%.2f", demorgan);
+											IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
+											CvFont font2;
+											CvPoint TextPos;
+											TextPos.x = (box_left[0]+box_left[1])/2; TextPos.y = box_left[2];
+											cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
+											cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
+											image d = ipl_to_image(text);  
+											memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
+											free_image(d);
+											cvReleaseImage(&text);										
+										}
 									}
 								}
 							}
@@ -864,20 +207,40 @@ void Weighted_Demorgan_Power_left(image det, float demo_thresh, float demo_thres
 
 							//if demorgan law's prob > 0.2, draw box
 							if(demorgan > 0.2){
-								if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
-								draw_weighted_power_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
-								char Text[30];
-								sprintf(Text, "%.2f", demorgan);
-								IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-								CvFont font2;
-								CvPoint TextPos;
-								TextPos.x = (box_left[0]+box_left[1])/2; TextPos.y = box_left[2];
-								cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-								cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-								image d = ipl_to_image(text);  
-								memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-								free_image(d);
-								cvReleaseImage(&text);										
+								// remove false positive
+								int x, y, w, count = 0;
+								for(y=box_left[2]; y<box_left[3]; y++){
+									for(x=box_left[0]; x<box_left[1]; x++){
+										int buffer_count = 0;
+										for(w=0; w<5; w++){
+											if(map[y-550][x-238][w] == 1)
+												buffer_count++;
+										}
+										if(buffer_count >= 3)
+											count++;
+										map[y-550][x-238][frame_counter%5] = 1;
+									}
+								}
+						
+								int box_left_area = (box_left[1] - box_left[0]) * (box_left[3] - box_left[2]);
+								float area = (float)count/(float)box_left_area;
+								
+								if(area > false_positive_area_thresh){
+									if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
+									draw_weighted_power_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
+									char Text[30];
+									sprintf(Text, "%.2f", demorgan);
+									IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
+									CvFont font2;
+									CvPoint TextPos;
+									TextPos.x = (box_left[0]+box_left[1])/2; TextPos.y = box_left[2];
+									cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
+									cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
+									image d = ipl_to_image(text);  
+									memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
+									free_image(d);
+									cvReleaseImage(&text);										
+								}
 							}
 						}
 					}
@@ -961,20 +324,40 @@ void Weighted_Demorgan_Power_left(image det, float demo_thresh, float demo_thres
 
 									//if demorgan law's prob > 0.2, draw box
 									if(demorgan > 0.2){
-										if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
-										draw_weighted_power_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
-										char Text[30];
-										sprintf(Text, "%.2f", demorgan);
-										IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-										CvFont font2;
-										CvPoint TextPos;
-										TextPos.x = (box_left[0]+box_left[1])/2; TextPos.y = box_left[2];
-										cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-										cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-										image d = ipl_to_image(text);  
-										memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-										free_image(d);
-										cvReleaseImage(&text);										
+										// remove false positive
+										int x, y, w, count = 0;
+										for(y=box_left[2]; y<box_left[3]; y++){
+											for(x=box_left[0]; x<box_left[1]; x++){
+												int buffer_count = 0;
+												for(w=0; w<5; w++){
+													if(map[y-550][x-238][w] == 1)
+														buffer_count++;
+												}
+												if(buffer_count >= 3)
+													count++;
+												map[y-550][x-238][frame_counter%5] = 1;
+											}
+										}
+								
+										int box_left_area = (box_left[1] - box_left[0]) * (box_left[3] - box_left[2]);
+										float area = (float)count/(float)box_left_area;
+										
+										if (area > false_positive_area_thresh){
+											if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
+											draw_weighted_power_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
+											char Text[30];
+											sprintf(Text, "%.2f", demorgan);
+											IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
+											CvFont font2;
+											CvPoint TextPos;
+											TextPos.x = (box_left[0]+box_left[1])/2; TextPos.y = box_left[2];
+											cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
+											cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
+											image d = ipl_to_image(text);  
+											memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
+											free_image(d);
+											cvReleaseImage(&text);										
+										}
 									}
 								}
 							}
@@ -987,20 +370,40 @@ void Weighted_Demorgan_Power_left(image det, float demo_thresh, float demo_thres
 
 							//if demorgan law's prob > 0.2, draw box
 							if(demorgan > 0.2){
-								if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
-								draw_weighted_power_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
-								char Text[30];
-								sprintf(Text, "%.2f", demorgan);
-								IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-								CvFont font2;
-								CvPoint TextPos;
-								TextPos.x = (box_left[0]+box_left[1])/2; TextPos.y = box_left[2];
-								cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-								cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-								image d = ipl_to_image(text);  
-								memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-								free_image(d);
-								cvReleaseImage(&text);										
+								// remove false positive
+								int x, y, w, count = 0;
+								for(y=box_left[2]; y<box_left[3]; y++){
+									for(x=box_left[0]; x<box_left[1]; x++){
+										int buffer_count = 0;
+										for(w=0; w<5; w++){
+											if(map[y-550][x-238][w] == 1)
+												buffer_count++;
+										}
+										if(buffer_count >= 3)
+											count++;
+										map[y-550][x-238][frame_counter%5] = 1;
+									}
+								}
+						
+								int box_left_area = (box_left[1] - box_left[0]) * (box_left[3] - box_left[2]);
+								float area = (float)count/(float)box_left_area;
+								
+								if (area > false_positive_area_thresh){
+									if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
+									draw_weighted_power_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
+									char Text[30];
+									sprintf(Text, "%.2f", demorgan);
+									IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
+									CvFont font2;
+									CvPoint TextPos;
+									TextPos.x = (box_left[0]+box_left[1])/2; TextPos.y = box_left[2];
+									cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
+									cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
+									image d = ipl_to_image(text);  
+									memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
+									free_image(d);
+									cvReleaseImage(&text);										
+								}
 							}
 						}
 					}
@@ -1093,20 +496,40 @@ void Weighted_Demorgan_Power_left(image det, float demo_thresh, float demo_thres
 
 							//if demorgan law's prob > 0.2, draw box
 							if(demorgan > 0.2){
-								if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
-								draw_weighted_power_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
-								char Text[30];
-								sprintf(Text, "%.2f", demorgan);
-								IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-								CvFont font2;
-								CvPoint TextPos;
-								TextPos.x = (box_up[0]+box_up[1])/2; TextPos.y = box_up[2];
-								cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-								cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-								image d = ipl_to_image(text);  
-								memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-								free_image(d);
-								cvReleaseImage(&text);										
+								// remove false positive
+								int x, y, w, count = 0;
+								for(y=box_up[2]; y<box_up[3]; y++){
+									for(x=box_up[0]; x<box_up[1]; x++){
+										int buffer_count = 0;
+										for(w=0; w<5; w++){
+											if(map[y-550][x-238][w] == 1)
+												buffer_count++;
+										}
+										if(buffer_count >= 3)
+											count++;
+										map[y-550][x-238][frame_counter%5] = 1;
+									}
+								}
+						
+								int box_up_area = (box_up[1] - box_up[0]) * (box_up[3] - box_up[2]);
+								float area = (float)count/(float)box_up_area;
+								
+								if (area > false_positive_area_thresh){
+									if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
+									draw_weighted_power_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
+									char Text[30];
+									sprintf(Text, "%.2f", demorgan);
+									IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
+									CvFont font2;
+									CvPoint TextPos;
+									TextPos.x = (box_up[0]+box_up[1])/2; TextPos.y = box_up[2];
+									cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
+									cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
+									image d = ipl_to_image(text);  
+									memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
+									free_image(d);
+									cvReleaseImage(&text);										
+								}
 							}
 						}
 					}
@@ -1148,22 +571,43 @@ void Weighted_Demorgan_Power_left(image det, float demo_thresh, float demo_thres
 			if (flag == 2){
 				//if the others overlap1 < overlap1_thresh, check prob_up
 				if (prob_up > demo_thresh){
-					int box_up[5] = {0};
+					int box_up[5] = {0}, box_up_area = 0;
 					get_upbox_in_leftROI(det, box_up, prob_up, boxes_up, i);
-					if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
-					draw_weighted_power_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
-					char Text[30];
-					sprintf(Text, "%.2f", prob_up);
-					IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-					CvFont font2;
-					CvPoint TextPos;
-					TextPos.x = (box_up[0]+box_up[1])/2; TextPos.y = box_up[2];
-					cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-					cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-					image d = ipl_to_image(text);  
-					memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-					free_image(d);
-					cvReleaseImage(&text);
+					box_up_area = (box_up[1] - box_up[0]) * (box_up[3] - box_up[2]);
+					
+					// remove false positive
+					int x, y, w, count = 0;
+					for(y=box_up[2]; y<box_up[3]; y++){
+						for(x=box_up[0]; x<box_up[1]; x++){
+							int buffer_count = 0;
+							for(w=0; w<5; w++){
+								if(map[y-550][x-238][w] == 1)
+									buffer_count++;
+							}
+							if(buffer_count >= 3)
+								count++;
+							map[y-550][x-238][frame_counter%5] = 1;
+						}
+					}
+			
+					float area = (float)count/(float)box_up_area;
+					
+					if (area > false_positive_area_thresh){
+						if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
+						draw_weighted_power_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
+						char Text[30];
+						sprintf(Text, "%.2f", prob_up);
+						IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
+						CvFont font2;
+						CvPoint TextPos;
+						TextPos.x = (box_up[0]+box_up[1])/2; TextPos.y = box_up[2];
+						cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
+						cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
+						image d = ipl_to_image(text);  
+						memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
+						free_image(d);
+						cvReleaseImage(&text);
+					}
 				}
 			}
 		}
@@ -1239,22 +683,43 @@ void Weighted_Demorgan_Power_left(image det, float demo_thresh, float demo_thres
 			if (flag == 2){
 				//if the others overlap1 < overlap1_thresh, check prob_right
 				if (prob_right > demo_thresh){
-					int box_right[5] = {0};
+					int box_right[5] = {0}, box_right_area = 0;
 					get_rightbox_in_leftROI(det, box_right, prob_right, boxes_right, i);
-                    if(voc_labels) draw_label(det, box_right[2] + box_right[4], box_right[0], voc_labels[obj_class_right], rgb);
-                    draw_weighted_power_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
-					char Text[30];
-					sprintf(Text, "%.2f", prob_right);
-					IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-					CvFont font2;
-					CvPoint TextPos;
-					TextPos.x = (box_right[0]+box_right[1])/2; TextPos.y = box_right[2];
-					cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-					cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-					image d = ipl_to_image(text);  
-					memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-					free_image(d);
-					cvReleaseImage(&text);
+					box_right_area = (box_right[1] - box_right[0]) * (box_right[3] - box_right[2]);
+					
+					// remove false positive
+					int x, y, w, count = 0;
+					for(y=box_right[2]; y<box_right[3]; y++){
+						for(x=box_right[0]; x<box_right[1]; x++){
+							int buffer_count = 0;
+							for(w=0; w<5; w++){
+								if(map[y-630][x-1130][w] == 1)
+									buffer_count++;
+							}
+							if(buffer_count >= 3)
+								count++;
+							map[y-630][x-1130][frame_counter%5] = 1;
+						}
+					}
+			
+					float area = (float)count/(float)box_right_area;
+                    
+					if (area > false_positive_area_thresh){
+						if(voc_labels) draw_label(det, box_right[2] + box_right[4], box_right[0], voc_labels[obj_class_right], rgb);
+						draw_weighted_power_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
+						char Text[30];
+						sprintf(Text, "%.2f", prob_right);
+						IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
+						CvFont font2;
+						CvPoint TextPos;
+						TextPos.x = (box_right[0]+box_right[1])/2; TextPos.y = box_right[2];
+						cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
+						cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
+						image d = ipl_to_image(text);  
+						memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
+						free_image(d);
+						cvReleaseImage(&text);
+					}
 				}
 			}
 		}
@@ -1263,44 +728,33 @@ void Weighted_Demorgan_Power_left(image det, float demo_thresh, float demo_thres
 
 
 //*****************************************************************
-//         Weighted De morgan law - Up	(Power version)
+//         Weighted De morgan law - Right	(Power version)
 //*****************************************************************
-void Weighted_Demorgan_Power_up(image det, float demo_thresh, float demo_thresh_low, float **probs_right, float **probs_left, float **probs_up, box *boxes_right, box *boxes_left, box *boxes_up, char**voc_names, image *voc_labels, int CLS_NUM, int num){
+void Weighted_Demorgan_Power_right(image det, float demo_thresh, float demo_thresh_low, float **probs_right, float **probs_left, float **probs_up, box *boxes_right, box *boxes_left, box *boxes_up, char**voc_names, image *voc_labels, int CLS_NUM, int num, int frame_counter, int map[][450][5]){
 	
 	int i,j,k;
 	float rgb[3] = {0.0};
 	float overlap1_thresh = 0.5, overlap2_thresh = 0.25;
-	
+	float false_positive_area_thresh = 0.6;
+
 	//enhance the prediction
-	// for each box in up
+	// for each box in right
 	for(i = 0; i < num; ++i){
-		int obj_class_up = max_index(probs_up[i], CLS_NUM);
-		float prob_up = probs_up[i][obj_class_up];
-		get_weighted_power_demorgan_box_color(rgb, obj_class_up, CLS_NUM);
-		if(voc_names[obj_class_up] == "car" && prob_up > demo_thresh_low && prob_up < demo_thresh){
-			// do De morgan law to all box in left
+		int obj_class_right = max_index(probs_right[i], CLS_NUM);
+		float prob_right = probs_right[i][obj_class_right];
+		get_weighted_power_demorgan_box_color(rgb, obj_class_right, CLS_NUM);
+		if(voc_names[obj_class_right] == "car" && prob_right > demo_thresh_low && prob_right < demo_thresh){
+			// do De morgan law to all box in up
 			for (j = 0; j < num; j++){
-				int obj_class_left = max_index(probs_left[j], CLS_NUM);
-				float prob_left = probs_left[j][obj_class_left];
-				if(voc_names[obj_class_left] == "car" && prob_left > demo_thresh_low){
+				int obj_class_up = max_index(probs_up[j], CLS_NUM);
+				float prob_up = probs_up[j][obj_class_up];
+				if(voc_names[obj_class_up] == "car" && prob_up > demo_thresh_low){
 					//check intersaction area
-					int box_left[5] = {0}, box_up[5] = {0};
-					int x, y, box_up_area = 0, box_left_area = 0;
-					int intersaction1 = 0;
-					get_leftbox_in_upROI(det, box_left, prob_left, boxes_left, j);
-					get_upbox_in_upROI(det, box_up, prob_up, boxes_up, i);
-					box_up_area = (box_up[1] - box_up[0]) * (box_up[3] - box_up[2]);
-					box_left_area = (box_left[1] - box_left[0]) * (box_left[3] - box_left[2]);
-
-					for (y = 80; y<=528; y++){
-						for (x = 780; x<=1218; x++){
-							if ( box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y
-								&& box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y )
-								intersaction1++;
-						}
-					}
-
-					float overlap1 = (float)intersaction1/(float)(box_up_area + box_left_area - intersaction1);
+					int box_up[5] = {0}, box_right[5] = {0};
+					get_upbox_in_rightROI(det, box_up, prob_up, boxes_up, j);
+					get_rightbox_in_rightROI(det, box_right, prob_right, boxes_right, i);
+					
+					float overlap1 = get_double_box_overlap(1130, 1578, 630, 1078, box_up, box_right);
 		
 #ifdef DRAW_OVERLAP_PROB
 					// draw overlap1 percentage
@@ -1310,7 +764,7 @@ void Weighted_Demorgan_Power_up(image det, float demo_thresh, float demo_thresh_
 					CvFont font2;
 					CvPoint TextPos;
 					//TextPos.x = (box_right[0]+box_right[1])/2; TextPos.y = box_right[2];
-					TextPos.x = 890; TextPos.y = 30;
+					TextPos.x = 1250; TextPos.y = 580;
 					cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
 					cvPutText(text , Text , TextPos , &font2 , CV_RGB(0,255,0));	
 					image d = ipl_to_image(text);  
@@ -1319,41 +773,17 @@ void Weighted_Demorgan_Power_up(image det, float demo_thresh, float demo_thresh_
 					cvReleaseImage(&text);
 #endif
 
-					//if intersaction overlap1 > thresh, do Demorgan law to all box in right
+					//if intersaction overlap1 > thresh, do Demorgan law to all box in left
 					if(overlap1 > overlap1_thresh){
 						int get_overlap2_flag = 0;
 						for (k = 0; k < num; k++){
-							int obj_class_right = max_index(probs_right[k], CLS_NUM);
-							float prob_right = probs_right[k][obj_class_right];
-							if(voc_names[obj_class_right] == "car" && prob_right > demo_thresh_low){
-								int box_right[5] = {0};
-								int x, y, box_right_area = 0;
-								int inter_right_up = 0, inter_left_up = 0, inter_left_right = 0, intersaction2 = 0;
-								get_rightbox_in_upROI(det, box_right, prob_right, boxes_right, k);
-								box_right_area = (box_right[1] - box_right[0]) * (box_right[3] - box_right[2]);
-
-								for (y = 80; y<=528; y++){
-									for (x = 780; x<=1218; x++){
-										if ( box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y
-											&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y
-											&& box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y )
-											intersaction2++;
-
-										if ( box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y
-											&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y)
-											inter_right_up++;
-
-										if ( box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y
-											&& box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y)
-											inter_left_up++;
-
-										if ( box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y
-											&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y)
-											inter_left_right++;
-									}
-								}
-
-								float overlap2 = (float)intersaction2/(float)(box_right_area + box_up_area + box_left_area - inter_right_up - inter_left_up - inter_left_right + intersaction2);
+							int obj_class_left = max_index(probs_left[k], CLS_NUM);
+							float prob_left = probs_left[k][obj_class_left];
+							if(voc_names[obj_class_left] == "car" && prob_left > demo_thresh_low){
+								int box_left[5] = {0};
+								get_leftbox_in_rightROI(det, box_left, prob_left, boxes_left, k);
+								
+								float overlap2 = get_triple_box_overlap(1130, 1578, 630, 1078, box_up, box_right, box_left);
 						
 #ifdef DRAW_OVERLAP_PROB
 								// draw overlap percentage
@@ -1363,7 +793,7 @@ void Weighted_Demorgan_Power_up(image det, float demo_thresh, float demo_thresh_
 								CvFont font2;
 								CvPoint TextPos;
 								//TextPos.x = (box_right[0]+box_right[1])/2; TextPos.y = box_right[2];
-								TextPos.x = 890; TextPos.y = 70;
+								TextPos.x = 1250; TextPos.y = 620;
 								cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
 								cvPutText(text , Text , TextPos , &font2 , CV_RGB(0,255,0));	
 								image d = ipl_to_image(text);  
@@ -1379,143 +809,40 @@ void Weighted_Demorgan_Power_up(image det, float demo_thresh, float demo_thresh_
 
 									//if demorgan law's prob > 0.2, draw box
 									if(demorgan > 0.2){
-										if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
-										draw_weighted_power_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
-										char Text[30];
-										sprintf(Text, "%.2f", demorgan);
-										IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-										CvFont font2;
-										CvPoint TextPos;
-										TextPos.x = (box_up[0]+box_up[1])/2; TextPos.y = box_up[2];
-										cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-										cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-										image d = ipl_to_image(text);  
-										memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-										free_image(d);
-										cvReleaseImage(&text);										
-									}
-								}
-							}
-						}
-
-						// if all overlap1 > overlap1_thesh but overlap2 < overlap2_thresh
-						if (get_overlap2_flag != 1){
-							float demorgan;
-							demorgan = 1 - pow((1-prob_up), weight_up) * pow((1-prob_left), weight_left);
-
-							//if demorgan law's prob > 0.2, draw box
-							if(demorgan > 0.2){
-								if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
-								draw_weighted_power_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
-								char Text[30];
-								sprintf(Text, "%.2f", demorgan);
-								IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-								CvFont font2;
-								CvPoint TextPos;
-								TextPos.x = (box_up[0]+box_up[1])/2; TextPos.y = box_up[2];
-								cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-								cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-								image d = ipl_to_image(text);  
-								memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-								free_image(d);
-								cvReleaseImage(&text);										
-							}
-						}
-					}
-
-					// if the overlap1 < overlap1_thresh, continue
-				}
-			}
-		}
-	}
-
-	// for each box in up
-	for(i = 0; i < num; ++i){
-		int obj_class_up = max_index(probs_up[i], CLS_NUM);
-		float prob_up = probs_up[i][obj_class_up];
-		get_weighted_power_demorgan_box_color(rgb, obj_class_up, CLS_NUM);
-		if(voc_names[obj_class_up] == "car" && prob_up > demo_thresh_low && prob_up < demo_thresh){
-			// do De morgan law to all box in right
-			for (j = 0; j < num; j++){
-				int obj_class_right = max_index(probs_right[j], CLS_NUM);
-				float prob_right = probs_right[j][obj_class_right];
-				if(voc_names[obj_class_right] == "car" && prob_right > demo_thresh_low){
-					//check intersaction area
-					int box_right[5] = {0}, box_up[5] = {0};
-					int x, y, box_up_area = 0, box_right_area = 0;
-					int intersaction1 = 0;
-					get_rightbox_in_upROI(det, box_right, prob_right, boxes_right, j);
-					get_upbox_in_upROI(det, box_up, prob_up, boxes_up, i);
-					box_up_area = (box_up[1] - box_up[0]) * (box_up[3] - box_up[2]);
-					box_right_area = (box_right[1] - box_right[0]) * (box_right[3] - box_right[2]);
-
-					for (y = 80; y<=528; y++){
-						for (x = 780; x<=1218; x++){
-							if ( box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y
-								&& box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y )
-								intersaction1++;
-						}
-					}
-
-					float overlap1 = (float)intersaction1/(float)(box_up_area + box_right_area - intersaction1);
-		
-					//if intersaction overlap1 > overlap1_thresh, do Demorgan law to all box in left
-					if(overlap1 > overlap1_thresh){
-						int get_overlap2_flag = 0;
-						for (k = 0; k < num; k++){
-							int obj_class_left = max_index(probs_left[k], CLS_NUM);
-							float prob_left = probs_left[k][obj_class_left];
-							if(voc_names[obj_class_left] == "car" && prob_left > demo_thresh_low){
-								int box_left[5] = {0};
-								int x, y, box_left_area = 0;
-								int inter_right_up = 0, inter_left_up = 0, inter_left_right = 0, intersaction2 = 0;
-								get_leftbox_in_upROI(det, box_left, prob_left, boxes_left, k);
-								box_left_area = (box_left[1] - box_left[0]) * (box_left[3] - box_left[2]);
-
-								for (y = 80; y<=528; y++){
-									for (x = 780; x<=1218; x++){
-										if ( box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y
-											&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y
-											&& box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y )
-											intersaction2++;
-
-										if ( box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y
-											&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y)
-											inter_right_up++;
-
-										if ( box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y
-											&& box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y)
-											inter_left_up++;
-
-										if ( box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y
-											&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y)
-											inter_left_right++;
-									}
-								}
-
-								float overlap2 = (float)intersaction2/(float)(box_right_area + box_up_area + box_left_area - inter_right_up - inter_left_up - inter_left_right + intersaction2);
-						
-								if(overlap2 > overlap2_thresh){
-									get_overlap2_flag = 1;
-									float demorgan;
-									demorgan = 1 - pow((1-prob_up), weight_up) * pow((1-prob_right), weight_right) * pow((1-prob_left), weight_left);
-
-									//if demorgan law's prob > 0.2, draw box
-									if(demorgan > 0.2){
-										if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
-										draw_weighted_power_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
-										char Text[30];
-										sprintf(Text, "%.2f", demorgan);
-										IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-										CvFont font2;
-										CvPoint TextPos;
-										TextPos.x = (box_up[0]+box_up[1])/2; TextPos.y = box_up[2];
-										cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-										cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-										image d = ipl_to_image(text);  
-										memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-										free_image(d);
-										cvReleaseImage(&text);										
+										// remove false positive
+										int x, y, w, count = 0;
+										for(y=box_right[2]; y<box_right[3]; y++){
+											for(x=box_right[0]; x<box_right[1]; x++){
+												int buffer_count = 0;
+												for(w=0; w<5; w++){
+													if(map[y-630][x-1130][w] == 1)
+														buffer_count++;
+												}
+												if(buffer_count >= 3)
+													count++;
+												map[y-630][x-1130][frame_counter%5] = 1;
+											}
+										}
+								
+										int box_right_area = (box_right[1] - box_right[0]) * (box_right[3] - box_right[2]);
+										float area = (float)count/(float)box_right_area;
+								
+										if(area > false_positive_area_thresh){	
+											if(voc_labels) draw_label(det, box_right[2] + box_right[4], box_right[0], voc_labels[obj_class_right], rgb);
+											draw_weighted_power_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
+											char Text[30];
+											sprintf(Text, "%.2f", demorgan);
+											IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
+											CvFont font2;
+											CvPoint TextPos;
+											TextPos.x = (box_right[0]+box_right[1])/2; TextPos.y = box_right[2];
+											cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
+											cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
+											image d = ipl_to_image(text);  
+											memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
+											free_image(d);
+											cvReleaseImage(&text);										
+										}
 									}
 								}
 							}
@@ -1528,20 +855,167 @@ void Weighted_Demorgan_Power_up(image det, float demo_thresh, float demo_thresh_
 
 							//if demorgan law's prob > 0.2, draw box
 							if(demorgan > 0.2){
-								if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
-								draw_weighted_power_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
-								char Text[30];
-								sprintf(Text, "%.2f", demorgan);
-								IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-								CvFont font2;
-								CvPoint TextPos;
-								TextPos.x = (box_up[0]+box_up[1])/2; TextPos.y = box_up[2];
-								cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-								cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-								image d = ipl_to_image(text);  
-								memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-								free_image(d);
-								cvReleaseImage(&text);										
+								// remove false positive
+								int x, y, w,count = 0;
+								for(y=box_right[2]; y<box_right[3]; y++){
+									for(x=box_right[0]; x<box_right[1]; x++){
+										int buffer_count = 0;
+										for(w=0; w<5; w++){
+											if(map[y-630][x-1130][w] == 1)
+												buffer_count++;
+										}
+										if(buffer_count >= 3)
+											count++;
+										map[y-630][x-1130][frame_counter%5] = 1;
+									}
+								}
+						
+								int box_right_area = (box_right[1] - box_right[0]) * (box_right[3] - box_right[2]);
+								float area = (float)count/(float)box_right_area;
+						
+								if(area > false_positive_area_thresh){	
+									if(voc_labels) draw_label(det, box_right[2] + box_right[4], box_right[0], voc_labels[obj_class_right], rgb);
+									draw_weighted_power_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
+									char Text[30];
+									sprintf(Text, "%.2f", demorgan);
+									IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
+									CvFont font2;
+									CvPoint TextPos;
+									TextPos.x = (box_right[0]+box_right[1])/2; TextPos.y = box_right[2];
+									cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
+									cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
+									image d = ipl_to_image(text);  
+									memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
+									free_image(d);
+									cvReleaseImage(&text);										
+								}
+							}
+						}
+					}
+
+					// if the overlap1 < overlap1_thresh, continue
+				}
+			}
+		}
+	}
+
+	// for each box in right
+	for(i = 0; i < num; ++i){
+		int obj_class_right = max_index(probs_right[i], CLS_NUM);
+		float prob_right = probs_right[i][obj_class_right];
+		get_weighted_power_demorgan_box_color(rgb, obj_class_right, CLS_NUM);
+		if(voc_names[obj_class_right] == "car" && prob_right > demo_thresh_low && prob_right < demo_thresh){
+			// do De morgan law to all box in left
+			for (j = 0; j < num; j++){
+				int obj_class_left = max_index(probs_left[j], CLS_NUM);
+				float prob_left = probs_left[j][obj_class_left];
+				if(voc_names[obj_class_left] == "car" && prob_left > demo_thresh_low){
+					//check intersaction area
+					int box_left[5] = {0}, box_right[5] = {0};
+					get_leftbox_in_rightROI(det, box_left, prob_left, boxes_left, j);
+					get_rightbox_in_rightROI(det, box_right, prob_right, boxes_right, i);
+					
+					float overlap1 = get_double_box_overlap(1130, 1578, 630, 1078, box_left, box_right);
+
+					//if intersaction overlap1 > overlap1_thresh, do Demorgan law to all box in up
+					if(overlap1 > overlap1_thresh){
+						int get_overlap2_flag = 0;
+						for (k = 0; k < num; k++){
+							int obj_class_up = max_index(probs_up[k], CLS_NUM);
+							float prob_up = probs_up[k][obj_class_up];
+							if(voc_names[obj_class_up] == "car" && prob_up > demo_thresh_low){
+								int box_up[5] = {0};
+								get_upbox_in_rightROI(det, box_up, prob_up, boxes_up, k);
+					
+								float overlap2 = get_triple_box_overlap(1130, 1578, 630, 1078, box_up, box_right, box_left);
+								
+								if(overlap2 > overlap2_thresh){
+									get_overlap2_flag = 1;
+									float demorgan;
+									demorgan = 1 - pow((1-prob_up), weight_up) * pow((1-prob_right), weight_right) * pow((1-prob_left), weight_left);
+
+									//if demorgan law's prob > 0.2, draw box
+									if(demorgan > 0.2){
+										// remove false positive
+										int x, y, w, count = 0;
+										for(y=box_right[2]; y<box_right[3]; y++){
+											for(x=box_right[0]; x<box_right[1]; x++){
+												int buffer_count = 0;
+												for(w=0; w<5; w++){
+													if(map[y-630][x-1130][w] == 1)
+														buffer_count++;
+												}
+												if(buffer_count >= 3)
+													count++;
+												map[y-630][x-1130][frame_counter%5] = 1;
+											}
+										}
+								
+										int box_right_area = (box_right[1] - box_right[0]) * (box_right[3] - box_right[2]);
+										float area = (float)count/(float)box_right_area;
+								
+										if(area > false_positive_area_thresh){	
+											if(voc_labels) draw_label(det, box_right[2] + box_right[4], box_right[0], voc_labels[obj_class_right], rgb);
+											draw_weighted_power_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
+											char Text[30];
+											sprintf(Text, "%.2f", demorgan);
+											IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
+											CvFont font2;
+											CvPoint TextPos;
+											TextPos.x = (box_right[0]+box_right[1])/2; TextPos.y = box_right[2];
+											cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
+											cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
+											image d = ipl_to_image(text);  
+											memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
+											free_image(d);
+											cvReleaseImage(&text);										
+										}
+									}
+								}
+							}
+						}
+
+						// if all overlap1 > overlap1_thesh but overlap2 < overlap2_thresh
+						if (get_overlap2_flag != 1){
+							float demorgan;
+							demorgan = 1 - pow((1-prob_right), weight_right) * pow((1-prob_left), weight_left);
+						
+							//if demorgan law's prob > 0.2, draw box
+							if(demorgan > 0.2){
+								// remove false positive
+								int x, y, w, count = 0;
+								for(y=box_right[2]; y<box_right[3]; y++){
+									for(x=box_right[0]; x<box_right[1]; x++){
+										int buffer_count = 0;
+										for(w=0; w<5; w++){
+											if(map[y-630][x-1130][w] == 1)
+												buffer_count++;
+										}
+										if(buffer_count >= 3)
+											count++;
+										map[y-630][x-1130][frame_counter%5] = 1;
+									}
+								}
+						
+								int box_right_area = (box_right[1] - box_right[0]) * (box_right[3] - box_right[2]);
+								float area = (float)count/(float)box_right_area;
+						
+								if(area > false_positive_area_thresh){	
+									if(voc_labels) draw_label(det, box_right[2] + box_right[4], box_right[0], voc_labels[obj_class_right], rgb);
+									draw_weighted_power_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
+									char Text[30];
+									sprintf(Text, "%.2f", demorgan);
+									IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
+									CvFont font2;
+									CvPoint TextPos;
+									TextPos.x = (box_right[0]+box_right[1])/2; TextPos.y = box_right[2];
+									cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
+									cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
+									image d = ipl_to_image(text);  
+									memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
+									free_image(d);
+									cvReleaseImage(&text);										
+								}
 							}
 						}
 					}
@@ -1553,73 +1027,37 @@ void Weighted_Demorgan_Power_up(image det, float demo_thresh, float demo_thresh_
 	}
 	
 	
-	// for each box in left
+	// for each box in up
 	for(i = 0; i < num; ++i){
-		int obj_class_left = max_index(probs_left[i], CLS_NUM);
-		float prob_left = probs_left[i][obj_class_left];
-		get_weighted_power_demorgan_box_color(rgb, obj_class_left, CLS_NUM);
+		int obj_class_up = max_index(probs_up[i], CLS_NUM);
+		float prob_up = probs_up[i][obj_class_up];
+		get_weighted_power_demorgan_box_color(rgb, obj_class_up, CLS_NUM);
 		int flag = 2;
-		if(voc_names[obj_class_left] == "car" && prob_left > demo_thresh_low){
-			// do De morgan law to all box in right
+		if(voc_names[obj_class_up] == "car" && prob_up > demo_thresh_low){
+			// do De morgan law to all box in left
 			for (j = 0; j < num; j++){
-				int obj_class_right = max_index(probs_right[j], CLS_NUM);
-				float prob_right = probs_right[j][obj_class_right];
-				if(voc_names[obj_class_right] == "car" && prob_right > demo_thresh_low){
+				int obj_class_left = max_index(probs_left[j], CLS_NUM);
+				float prob_left = probs_left[j][obj_class_left];
+				if(voc_names[obj_class_left] == "car" && prob_left > demo_thresh_low){
 					//check intersaction area
-					int box_right[5] = {0}, box_left[5] = {0};
-					int x, y, box_left_area = 0, box_right_area = 0;
-					int intersaction1 = 0;
-					get_rightbox_in_upROI(det, box_right, prob_right, boxes_right, j);
-					get_leftbox_in_upROI(det, box_left, prob_left, boxes_left, i);
-					box_left_area = (box_left[1] - box_left[0]) * (box_left[3] - box_left[2]);
-					box_right_area = (box_right[1] - box_right[0]) * (box_right[3] - box_right[2]);
-
-					for (y = 80; y<=528; y++){
-						for (x = 780; x<=1218; x++){
-							if ( box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y
-								&& box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y )
-								intersaction1++;
-						}
-					}
-
-					float overlap1 = (float)intersaction1/(float)(box_left_area + box_right_area - intersaction1);
+					int box_left[5] = {0}, box_up[5] = {0};
+					get_leftbox_in_rightROI(det, box_left, prob_left, boxes_left, j);
+					get_upbox_in_rightROI(det, box_up, prob_up, boxes_up, i);
+					
+					float overlap1 = get_double_box_overlap(1130, 1578, 630, 1078, box_up, box_left);
 		
 					if(overlap1 > overlap1_thresh){
 						flag--;
 						int get_overlap2_flag = 0;
 						for (k = 0; k < num; k++){
-							int obj_class_up = max_index(probs_up[k], CLS_NUM);
-							float prob_up = probs_up[k][obj_class_up];
-							if(voc_names[obj_class_up] == "car" && prob_up > demo_thresh_low){
-								int box_up[5] = {0};
-								int x, y, box_up_area = 0;
-								int inter_right_up = 0, inter_left_up = 0, inter_left_right = 0, intersaction2 = 0;
-								get_upbox_in_upROI(det, box_up, prob_up, boxes_up, k);
-								box_up_area = (box_up[1] - box_up[0]) * (box_up[3] - box_up[2]);
-
-								for (y = 80; y<=528; y++){
-									for (x = 780; x<=1218; x++){
-										if ( box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y
-											&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y
-											&& box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y )
-											intersaction2++;
-
-										if ( box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y
-											&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y)
-											inter_right_up++;
-
-										if ( box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y
-											&& box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y)
-											inter_left_up++;
-
-										if ( box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y
-											&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y)
-											inter_left_right++;
-									}
-								}
-
-								float overlap2 = (float)intersaction2/(float)(box_right_area + box_up_area + box_left_area - inter_right_up - inter_left_up - inter_left_right + intersaction2);
+							int obj_class_right = max_index(probs_right[k], CLS_NUM);
+							float prob_right = probs_right[k][obj_class_right];
+							if(voc_names[obj_class_right] == "car" && prob_right > demo_thresh_low){
+								int box_right[5] = {0};
+								get_rightbox_in_rightROI(det, box_right, prob_right, boxes_right, k);
 						
+								float overlap2 = get_triple_box_overlap(1130, 1578, 630, 1078, box_up, box_right, box_left);
+								
 								if(overlap2 > overlap2_thresh){
 									get_overlap2_flag = 1;
 								}
@@ -1629,24 +1067,44 @@ void Weighted_Demorgan_Power_up(image det, float demo_thresh, float demo_thresh_
 						// if all overlap1 > overlap1_thesh but overlap2 < overlap2_thresh
 						if (get_overlap2_flag != 1){
 							float demorgan;
-							demorgan = 1 - pow((1-prob_right), weight_right) * pow((1-prob_left), weight_left);
+							demorgan = 1 - pow((1-prob_up), weight_up) * pow((1-prob_left), weight_left);
 
 							//if demorgan law's prob > 0.2, draw box
 							if(demorgan > 0.2){
-								if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
-								draw_weighted_power_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
-								char Text[30];
-								sprintf(Text, "%.2f", demorgan);
-								IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-								CvFont font2;
-								CvPoint TextPos;
-								TextPos.x = (box_left[0]+box_left[1])/2; TextPos.y = box_left[2];
-								cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-								cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-								image d = ipl_to_image(text);  
-								memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-								free_image(d);
-								cvReleaseImage(&text);										
+								// remove false positive
+								int x, y, w, count = 0;
+								for(y=box_up[2]; y<box_up[3]; y++){
+									for(x=box_up[0]; x<box_up[1]; x++){
+										int buffer_count = 0;
+										for(w=0; w<5; w++){
+											if(map[y-630][x-1130][w] == 1)
+												buffer_count++;
+										}
+										if(buffer_count >= 3)
+											count++;
+										map[y-630][x-1130][frame_counter%5] = 1;
+									}
+								}
+						
+								int box_up_area = (box_up[1] - box_up[0]) * (box_up[3] - box_up[2]);
+								float area = (float)count/(float)box_up_area;
+						
+								if(area > false_positive_area_thresh){	
+									if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
+									draw_weighted_power_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
+									char Text[30];
+									sprintf(Text, "%.2f", demorgan);
+									IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
+									CvFont font2;
+									CvPoint TextPos;
+									TextPos.x = (box_up[0]+box_up[1])/2; TextPos.y = box_up[2];
+									cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
+									cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
+									image d = ipl_to_image(text);  
+									memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
+									free_image(d);
+									cvReleaseImage(&text);										
+								}
 							}
 						}
 					}
@@ -1654,6 +1112,77 @@ void Weighted_Demorgan_Power_up(image det, float demo_thresh, float demo_thresh_
 			}
 
 
+			// do De morgan law to all box in right
+			for (j = 0; j < num; j++){
+				int obj_class_right = max_index(probs_right[j], CLS_NUM);
+				float prob_right = probs_right[j][obj_class_right];
+				if(voc_names[obj_class_right] == "car" && prob_right > demo_thresh_low){
+					//check intersaction area
+					int box_right[5] = {0}, box_up[5] = {0};
+					get_rightbox_in_rightROI(det, box_right, prob_right, boxes_right, j);
+					get_upbox_in_rightROI(det, box_up, prob_up, boxes_up, i);
+					
+					float overlap1 = get_double_box_overlap(1130, 1578, 630, 1078, box_up, box_right);
+
+					if(overlap1 > overlap1_thresh){
+						flag--;	
+					}
+				}
+			}
+		
+
+			if (flag == 2){
+				//if the others overlap1 < overlap1_thresh, check prob_up
+				if (prob_up > demo_thresh){
+					int box_up[5] = {0}, box_up_area = 0;
+					get_upbox_in_rightROI(det, box_up, prob_up, boxes_up, i);
+					box_up_area = (box_up[1] - box_up[0]) * (box_up[3] - box_up[2]);
+					
+					// remove false positive
+					int x, y, w, count = 0;
+					for(y=box_up[2]; y<box_up[3]; y++){
+						for(x=box_up[0]; x<box_up[1]; x++){
+							int buffer_count = 0;
+							for(w=0; w<5; w++){
+								if(map[y-630][x-1130][w] == 1)
+									buffer_count++;
+							}
+							if(buffer_count >= 3)
+								count++;
+							map[y-630][x-1130][frame_counter%5] = 1;
+						}
+					}
+			
+					float area = (float)count/(float)box_up_area;
+			
+					if(area > false_positive_area_thresh){	
+						if(voc_labels) draw_label(det, box_up[2] + box_up[4], box_up[0], voc_labels[obj_class_up], rgb);
+						draw_weighted_power_box_width(det, box_up[0], box_up[2], box_up[1], box_up[3], box_up[4], rgb[0], rgb[1], rgb[2]);
+						char Text[30];
+						sprintf(Text, "%.2f", prob_up);
+						IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
+						CvFont font2;
+						CvPoint TextPos;
+						TextPos.x = (box_up[0]+box_up[1])/2; TextPos.y = box_up[2];
+						cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
+						cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
+						image d = ipl_to_image(text);  
+						memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
+						free_image(d);
+						cvReleaseImage(&text);										
+					}
+				}
+			}
+		}
+	}
+	
+    // for each box in left
+	for(i = 0; i < num; ++i){
+		int obj_class_left = max_index(probs_left[i], CLS_NUM);
+		float prob_left = probs_left[i][obj_class_left];
+		get_weighted_power_demorgan_box_color(rgb, obj_class_left, CLS_NUM);
+		int flag = 2;
+		if(voc_names[obj_class_left] == "car" && prob_left > demo_thresh_low){
 			// do De morgan law to all box in up
 			for (j = 0; j < num; j++){
 				int obj_class_up = max_index(probs_up[j], CLS_NUM);
@@ -1661,84 +1190,10 @@ void Weighted_Demorgan_Power_up(image det, float demo_thresh, float demo_thresh_
 				if(voc_names[obj_class_up] == "car" && prob_up > demo_thresh_low){
 					//check intersaction area
 					int box_left[5] = {0}, box_up[5] = {0};
-					int x, y, box_up_area = 0, box_left_area = 0;
-					int intersaction1 = 0;
-					get_leftbox_in_upROI(det, box_left, prob_left, boxes_left, j);
-					get_upbox_in_upROI(det, box_up, prob_up, boxes_up, i);
-					box_up_area = (box_up[1] - box_up[0]) * (box_up[3] - box_up[2]);
-					box_left_area = (box_left[1] - box_left[0]) * (box_left[3] - box_left[2]);
+					get_leftbox_in_rightROI(det, box_left, prob_left, boxes_left, j);
+					get_upbox_in_rightROI(det, box_up, prob_up, boxes_up, i);
 
-					for (y = 80; y<=528; y++){
-						for (x = 780; x<=1218; x++){
-							if ( box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y
-								&& box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y )
-								intersaction1++;
-						}
-					}
-
-					float overlap1 = (float)intersaction1/(float)(box_up_area + box_left_area - intersaction1);
-
-					if(overlap1 > overlap1_thresh){
-						flag--;	
-					}
-				}
-			}
-		
-
-			if (flag == 2){
-				//if the others overlap1 < overlap1_thresh, check prob_left
-				if (prob_left > demo_thresh){
-					int box_left[5] = {0};
-					get_leftbox_in_upROI(det, box_left, prob_left, boxes_left, i);
-					if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
-					draw_weighted_power_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
-					char Text[30];
-					sprintf(Text, "%.2f", prob_left);
-					IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-					CvFont font2;
-					CvPoint TextPos;
-					TextPos.x = (box_left[0]+box_left[1])/2; TextPos.y = box_left[2];
-					cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-					cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-					image d = ipl_to_image(text);  
-					memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-					free_image(d);
-					cvReleaseImage(&text);
-				}
-			}
-		}
-	}
-	
-    // for each box in right
-	for(i = 0; i < num; ++i){
-		int obj_class_right = max_index(probs_right[i], CLS_NUM);
-		float prob_right = probs_right[i][obj_class_right];
-		get_weighted_power_demorgan_box_color(rgb, obj_class_right, CLS_NUM);
-		int flag = 2;
-		if(voc_names[obj_class_right] == "car" && prob_right > demo_thresh_low){
-			// do De morgan law to all box in left
-			for (j = 0; j < num; j++){
-				int obj_class_left = max_index(probs_left[j], CLS_NUM);
-				float prob_left = probs_left[j][obj_class_left];
-				if(voc_names[obj_class_left] == "car" && prob_left > demo_thresh_low){
-					//check intersaction area
-					int box_left[5] = {0}, box_right[5] = {0};
-					int x, y, box_right_area = 0, box_left_area = 0;
-					int intersaction1 = 0;
-					get_leftbox_in_upROI(det, box_left, prob_left, boxes_left, j);
-					get_rightbox_in_upROI(det, box_right, prob_right, boxes_right, i);
-					box_right_area = (box_right[1] - box_right[0]) * (box_right[3] - box_right[2]);
-					box_left_area = (box_left[1] - box_left[0]) * (box_left[3] - box_left[2]);
-
-					for (y = 80; y<=528; y++){
-						for (x = 780; x<=1218; x++){
-							if ( box_left[0] <= x && box_left[1] >= x && box_left[2]<= y && box_left[3] >= y
-								&& box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y )
-								intersaction1++;
-						}
-					}
-
-					float overlap1 = (float)intersaction1/(float)(box_right_area + box_left_area - intersaction1);
+					float overlap1 = get_double_box_overlap(1130, 1578, 630, 1078, box_up, box_left);
 		
 					if(overlap1 > overlap1_thresh){
 						flag--;
@@ -1746,29 +1201,17 @@ void Weighted_Demorgan_Power_up(image det, float demo_thresh, float demo_thresh_
 				}
 			}
 
-			// do De morgan law to all box in up
+			// do De morgan law to all box in right
 			for (j = 0; j < num; j++){
-				int obj_class_up = max_index(probs_up[j], CLS_NUM);
-				float prob_up = probs_up[j][obj_class_up];
-				if(voc_names[obj_class_up] == "car" && prob_up > demo_thresh_low){
+				int obj_class_right = max_index(probs_right[j], CLS_NUM);
+				float prob_right = probs_right[j][obj_class_right];
+				if(voc_names[obj_class_right] == "car" && prob_right > demo_thresh_low){
 					//check intersaction area
-					int box_right[5] = {0}, box_up[5] = {0};
-					int x, y, box_up_area = 0, box_right_area = 0;
-					int intersaction1 = 0;
-					get_rightbox_in_upROI(det, box_right, prob_right, boxes_right, j);
-					get_upbox_in_upROI(det, box_up, prob_up, boxes_up, i);
-					box_up_area = (box_up[1] - box_up[0]) * (box_up[3] - box_up[2]);
-					box_right_area = (box_right[1] - box_right[0]) * (box_right[3] - box_right[2]);
+					int box_right[5] = {0}, box_left[5] = {0};
+					get_rightbox_in_rightROI(det, box_right, prob_right, boxes_right, j);
+					get_leftbox_in_rightROI(det, box_left, prob_left, boxes_left, i);
 
-					for (y = 80; y<=528; y++){
-						for (x = 780; x<=1218; x++){
-							if ( box_right[0] <= x && box_right[1] >= x && box_right[2]<= y && box_right[3] >= y
-								&& box_up[0] <= x && box_up[1] >= x && box_up[2]<= y && box_up[3] >= y )
-								intersaction1++;
-						}
-					}
-
-					float overlap1 = (float)intersaction1/(float)(box_up_area + box_right_area - intersaction1);
+					float overlap1 = get_double_box_overlap(1130, 1578, 630, 1078, box_right, box_left);
 	
 					if(overlap1 > overlap1_thresh){
 						flag--;	
@@ -1777,28 +1220,55 @@ void Weighted_Demorgan_Power_up(image det, float demo_thresh, float demo_thresh_
 			}
 
 			if (flag == 2){
-				//if the others overlap1 < overlap1_thresh, check prob_right
-				if (prob_right > demo_thresh){
-					int box_right[5] = {0};
-					get_rightbox_in_upROI(det, box_right, prob_right, boxes_right, i);
-                    if(voc_labels) draw_label(det, box_right[2] + box_right[4], box_right[0], voc_labels[obj_class_right], rgb);
-                    draw_weighted_power_box_width(det, box_right[0], box_right[2], box_right[1], box_right[3], box_right[4], rgb[0], rgb[1], rgb[2]);
-					char Text[30];
-					sprintf(Text, "%.2f", prob_right);
-					IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
-					CvFont font2;
-					CvPoint TextPos;
-					TextPos.x = (box_right[0]+box_right[1])/2; TextPos.y = box_right[2];
-					cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
-					cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
-					image d = ipl_to_image(text);  
-					memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
-					free_image(d);
-					cvReleaseImage(&text);
+				//if the others overlap1 < overlap1_thresh, check prob_left
+				if (prob_left > demo_thresh){
+					int box_left[5] = {0}, box_left_area = 0;
+					get_leftbox_in_rightROI(det, box_left, prob_left, boxes_left, i);
+					box_left_area = (box_left[1] - box_left[0]) * (box_left[3] - box_left[2]);
+					
+					// remove false positive
+					int x, y, w, count = 0;
+					for(y=box_left[2]; y<box_left[3]; y++){
+						for(x=box_left[0]; x<box_left[1]; x++){
+							int buffer_count = 0;
+							for(w=0; w<5; w++){
+								if(map[y-630][x-1130][w] == 1)
+									buffer_count++;
+							}
+							if(buffer_count >= 3)
+								count++;
+							map[y-630][x-1130][frame_counter%5] = 1;
+						}
+					}
+			
+					float area = (float)count/(float)box_left_area;
+			
+					if(area > false_positive_area_thresh){	
+						if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
+						draw_weighted_power_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
+						char Text[30];
+						sprintf(Text, "%.2f", prob_left);
+						IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
+						CvFont font2;
+						CvPoint TextPos;
+						TextPos.x = (box_left[0]+box_left[1])/2; TextPos.y = box_left[2];
+						cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
+						cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
+						image d = ipl_to_image(text);  
+						memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
+						free_image(d);
+						cvReleaseImage(&text);										
+					}
 				}
 			}
 		}
 	}
+}
+
+//*****************************************************************
+//         Weighted De morgan law - Up	(Power version)
+//*****************************************************************
+void Weighted_Demorgan_Power_up(image det, float demo_thresh, float demo_thresh_low, float **probs_right, float **probs_left, float **probs_up, box *boxes_right, box *boxes_left, box *boxes_up, char**voc_names, image *voc_labels, int CLS_NUM, int num, int frame_counter, int map[][450][5]){
 }
 
 

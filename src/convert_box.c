@@ -778,6 +778,74 @@ void get_upbox_in_upROI(image det, int *output, float prob, box *boxes, int i){
 	output[4] = width;
 }
 
+int max(int a, int b){
+	if (a>b)
+		return a;
+	else
+		return b;
+}
+int min(int a, int b){
+	if (a<b)
+		return a;
+	else
+		return b;
+}
+float get_double_box_overlap(int roi_lx, int roi_rx, int roi_ly, int roi_ry, int *box1, int *box2){
+	int lx, ly, rx, ry;
+	int box_union_area, box1_area, box2_area;
+	int intersaction;
+	
+	lx = max(max(box1[0], roi_lx), box2[0]);
+	rx = min(min(box1[1], roi_rx), box2[1]);
+	ly = max(max(box1[2], roi_ly), box2[2]);
+	ry = min(min(box1[3], roi_ry), box2[3]);
+	
+	intersaction = (rx-lx)*(ry-ly);
 
+	box1_area = (box1[1] - box1[0]) * (box1[3] - box1[2]);
+	box2_area = (box2[1] - box2[0]) * (box2[3] - box2[2]);
+	box_union_area = box1_area + box2_area - intersaction;
+
+	return (float)intersaction/(float)box_union_area;
+}
+
+float get_triple_box_overlap(int roi_lx, int roi_rx, int roi_ly, int roi_ry, int *box1, int *box2, int *box3){
+	int lx, ly, rx, ry;
+	int box_union_area, box1_area, box2_area, box3_area;
+	int inter1_area, inter2_area, inter3_area;
+	int intersaction;
+
+	lx = max(max(max(box1[0], roi_lx), box2[0]), box3[0]);
+	rx = min(min(min(box1[1], roi_rx), box2[1]), box3[1]);
+	ly = max(max(max(box1[2], roi_ly), box2[2]), box3[2]);
+	ry = min(min(min(box1[3], roi_ry), box2[3]), box3[3]);
+
+	intersaction = (rx-lx+1)*(ry-ly+1);
+
+	lx = max(max(box1[0], roi_lx), box2[0]);
+	rx = min(min(box1[1], roi_rx), box2[1]);
+	ly = max(max(box1[2], roi_ly), box2[2]);
+	ry = min(min(box1[3], roi_ry), box2[3]);
+	inter1_area = (rx-lx)*(ry-ly);
+
+	lx = max(max(box1[0], roi_lx), box3[0]);
+	rx = min(min(box1[1], roi_rx), box3[1]);
+	ly = max(max(box1[2], roi_ly), box3[2]);
+	ry = min(min(box1[3], roi_ry), box3[3]);	
+	inter2_area = (rx-lx)*(ry-ly);
+
+	lx = max(max(box2[0], roi_lx), box3[0]);
+	rx = min(min(box2[1], roi_rx), box3[1]);
+	ly = max(max(box2[2], roi_ly), box3[2]);
+	ry = min(min(box2[3], roi_ry), box3[3]);
+	inter3_area = (rx-lx)*(ry-ly);
+
+	box1_area = (box1[1] - box1[0]) * (box1[3] - box1[2]);
+	box2_area = (box2[1] - box2[0]) * (box2[3] - box2[2]);
+	box3_area = (box3[1] - box3[0]) * (box3[3] - box3[2]);
+	box_union_area = box1_area + box2_area + box3_area - inter1_area - inter2_area - inter3_area + intersaction;
+
+	return (float)intersaction/(float)box_union_area;
+}
 
 #endif

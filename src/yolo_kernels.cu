@@ -63,7 +63,7 @@ static image disp ;
 static cv::VideoCapture cap;
 static cv::VideoWriter cap_out;
 static float demo_thresh = 0.2;
-static float demo_thresh_low = 0.03;
+static float demo_thresh_low = 0.02;
 static int w, h, depth, c, step= 0;
 float FPS = 0;
 
@@ -87,24 +87,26 @@ char fpss[20];
 cv::Mat frames[1900];
 struct timeval start_time;	
 
-int map[450][450][5];
+int right_map[450][450][5];
+int left_map[450][450][5];
 
 
 //========== control parameter ==================
 
 //int frame_counter = 200; //demo frame counter
 //int frame_counter = 1200;
-int frame_counter = 100;
-//#define DRAW_CONVERT
-//#define DRAW_LOW_THRESHOLD_DETECTION
+int frame_counter = 0;
+#define DRAW_CONVERT
+#define DRAW_LOW_THRESHOLD_DETECTION
 //#define DEMORGAN_RIGHT
 //#define WEIGHTED_DEMORGAN_RIGHT
 //#define WEIGHTED_POWER_DEMORGAN_RIGHT
 //#define DEMORGAN_LEFT
-#define WEIGHTED_DEMORGAN_LEFT
+//#define WEIGHTED_DEMORGAN_LEFT
 #define WEIGHTED_POWER_DEMORGAN_LEFT
-//#define FRAME_BY_FRAME
+#define FRAME_BY_FRAME
 //#define BOTH_DEMORGAN
+//#define FALSE_POSITIVE_REMOVAL
 
 //===============================================
 
@@ -137,7 +139,8 @@ void *fetch_in_thread(void *Elastic)
 	int a, b, c;
 	for(a=0; a<448; a++){
 		for(b=0; b<448; b++){
-			map[a][b][frame_counter%5] = 0;
+			right_map[a][b][frame_counter%5] = 0;
+			left_map[a][b][frame_counter%5] = 0;
 		}
 	}
 	
@@ -239,51 +242,68 @@ void *detect_in_thread_left(void *arg)
 	//free_image(tmp.ROI);
 	convert_yolo_detections(predictions, l.classes, l.n, l.sqrt, l.side, 1, 1, demo_thresh_low, probs_left, boxes_left, 0);
 	if (nms > 0) do_nms(boxes_left, probs_left, l.side*l.side*l.n, l.classes, nms);
-#ifdef DRAW_LOW_THRESHOLD_DETECTION
-	draw_detections(det, l.side*l.side*l.n, demo_thresh_low, boxes_left, probs_left, voc_names, voc_labels, CLS_NUM, tmp.draw);
-#else
-	draw_detections(det, l.side*l.side*l.n, demo_thresh, boxes_left, probs_left, voc_names, voc_labels, CLS_NUM, tmp.draw);
-#endif
-	/*
+
+#ifdef FALSE_POSITIVE_REMOVAL
 	//Remove false positive
 	int i;
 	int num = l.side*l.side*l.n; 
 	for(i = 0; i < num; ++i){
-		int obj_class = max_index(probs_left[i], CLS_NUM);
-		if(voc_names[obj_class] == "car"){
-			float prob_left = probs_left[i][obj_class];
+		int obj_class_left = max_index(probs_left[i], CLS_NUM);
+		if(voc_names[obj_class_left] == "car"){
+			float prob_left = probs_left[i][obj_class_left];
 			if(prob_left > demo_thresh){
 				int box_left[5];
 				int x, y, j, count = 0, box_left_area = 0;
 				get_leftbox_in_leftROI(det, box_left, prob_left, boxes_left, i);
-				box_left_area = (box_left[1] - box_left[0]) * (box_left[3] - box_left[2]);
-				
+				box_left_area = (box_left[1] - box_left[0]) * (box_left[3] - box_left[2]);	
 				
 				for(y=box_left[2]; y<box_left[3]; y++){
 					for(x=box_left[0]; x<box_left[1]; x++){
 						int buffer_count = 0;
 						for(j=0; j<5; j++){
-							if(map[y-400][x-238][j] == 1)
+							if(left_map[y-550][x-238][j] == 1)
 								buffer_count++;
 						}
 						if(buffer_count >= 3)
 							count++;
-						map[y-400][x-238][frame_counter%5] = 1;
+						left_map[y-550][x-238][frame_counter%5] = 1;
 					}
 				}
 				
 				float area = (float)count/(float)box_left_area;
 				
-				if(area > 0.6){
-					draw_detections(det, l.side*l.side*l.n, demo_thresh, boxes_left, probs_left, voc_names, voc_labels, CLS_NUM,tmp.draw);
+				if(area > 0.6){	
+					float rgb[3];
+					get_normal_box_color(rgb, obj_class_left, CLS_NUM);
+					if(voc_labels) draw_label(det, box_left[2] + box_left[4], box_left[0], voc_labels[obj_class_left], rgb);
+					draw_box_width(det, box_left[0], box_left[2], box_left[1], box_left[3], box_left[4], rgb[0], rgb[1], rgb[2]);
+					char Text[30];
+					sprintf(Text, "%.2f", prob_left);
+					IplImage *text = image_to_Ipl(det,det.w,det.h,IPL_DEPTH_8U,det.c,det.w*det.c);			
+					CvFont font2;
+					CvPoint TextPos;
+					TextPos.x = (box_left[0]+box_left[1])/2-50; TextPos.y = box_left[2];
+					cvInitFont(&font2 , CV_FONT_HERSHEY_SIMPLEX , 1 , 1 , 1 , 3 , CV_AA);
+					cvPutText(text , Text , TextPos , &font2 , CV_RGB(0, 133, 255));	
+					image d = ipl_to_image(text);  
+					memcpy(det.data,d.data,det.h*det.w*det.c*sizeof(float));
+					free_image(d);
+					cvReleaseImage(&text);										
 				}
 			}
 		}
 	}
-	*/
-	draw_detections(det, l.side*l.side*l.n, demo_thresh, boxes_left, probs_left, voc_names, voc_labels, CLS_NUM,tmp.draw);
-	
+#elif defined(DRAW_LOW_THRESHOLD_DETECTION)
+	draw_detections(det, l.side*l.side*l.n, demo_thresh_low, boxes_left, probs_left, voc_names, voc_labels, CLS_NUM, tmp.draw);
+#else
+	draw_detections(det, l.side*l.side*l.n, demo_thresh, boxes_left, probs_left, voc_names, voc_labels, CLS_NUM, tmp.draw);
+#endif
+
+
+
 #ifdef DRAW_CONVERT
+	int i;
+	int num = l.side*l.side*l.n; 
 	for(i = 0; i < num; ++i){
 		int obj_class = max_index(probs_left[i], CLS_NUM);
 		if(voc_names[obj_class] == "car"){
@@ -323,14 +343,8 @@ void *detect_in_thread_right(void *arg)
 	//free_image(tmp.ROI);
 	convert_yolo_detections(predictions, l.classes, l.n, l.sqrt, l.side, 1, 1, demo_thresh_low, probs_right, boxes_right, 0);
 	if (nms > 0) do_nms(boxes_right, probs_right, l.side*l.side*l.n, l.classes, nms);
-/*
-#ifdef DRAW_LOW_THRESHOLD_DETECTION
-	draw_detections(det, l.side*l.side*l.n, demo_thresh_low, boxes_right, probs_right, voc_names, voc_labels, CLS_NUM, tmp.draw);
-#else
-	draw_detections(det, l.side*l.side*l.n, demo_thresh, boxes_right, probs_right, voc_names, voc_labels, CLS_NUM, tmp.draw);
-#endif
-*/
-	
+
+#ifdef FALSE_POSITIVE_REMOVAL	
 	//Remove false positive
 	int i;
 	int num = l.side*l.side*l.n; 
@@ -348,12 +362,12 @@ void *detect_in_thread_right(void *arg)
 					for(x=box_right[0]; x<box_right[1]; x++){
 						int buffer_count = 0;
 						for(j=0; j<5; j++){
-							if(map[y-630][x-1130][j] == 1)
+							if(right_map[y-630][x-1130][j] == 1)
 								buffer_count++;
 						}
 						if(buffer_count >= 3)
 							count++;
-						map[y-630][x-1130][frame_counter%5] = 1;
+						right_map[y-630][x-1130][frame_counter%5] = 1;
 					}
 				}
 				
@@ -380,6 +394,12 @@ void *detect_in_thread_right(void *arg)
 			}
 		}
 	}
+#elif defined(DRAW_LOW_THRESHOLD_DETECTION)
+	draw_detections(det, l.side*l.side*l.n, demo_thresh_low, boxes_right, probs_right, voc_names, voc_labels, CLS_NUM, tmp.draw);
+#else
+	draw_detections(det, l.side*l.side*l.n, demo_thresh, boxes_right, probs_right, voc_names, voc_labels, CLS_NUM, tmp.draw);
+#endif
+
 
 #ifdef DRAW_CONVERT
 	int i;
@@ -460,7 +480,8 @@ extern "C" void demo_yolo(char *cfgfile, char *weightfile, float thresh, int cam
 	for(i=0; i<448; i++){
 		for(j=0; j<448; j++){
 			for(k=0; k<5; k++){
-				map[i][j][k] = 0;
+				right_map[i][j][k] = 0;
+				left_map[i][j][k] = 0;
 			}
 		}
 	}
@@ -526,7 +547,7 @@ extern "C" void demo_yolo(char *cfgfile, char *weightfile, float thresh, int cam
 				Weighted_Demorgan_left(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n);
 #endif
 #ifdef WEIGHTED_POWER_DEMORGAN_LEFT
-				Weighted_Demorgan_Power_left(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n);
+				Weighted_Demorgan_Power_left(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n, frame_counter, left_map);
 #endif
 #ifdef DEMORGAN_LEFT
 				Demorgan_left(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n);
@@ -537,7 +558,7 @@ extern "C" void demo_yolo(char *cfgfile, char *weightfile, float thresh, int cam
 				Weighted_Demorgan_right(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n);
 #endif
 #ifdef WEIGHTED_POWER_DEMORGAN_RIGHT
-				Weighted_Demorgan_Power_right(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n, frame_counter, map);
+				Weighted_Demorgan_Power_right(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n, frame_counter, right_map);
 #endif
 #ifdef DEMORGAN_RIGHT
 				Demorgan_right(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n);
@@ -555,6 +576,7 @@ extern "C" void demo_yolo(char *cfgfile, char *weightfile, float thresh, int cam
 			}
 
 			
+    		//save_image(disp, "test");
 			show_image_and_text(disp, "YOLO", mode, lane, fpss);
 			free_image(disp);
 #ifdef FRAME_BY_FRAME

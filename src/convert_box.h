@@ -9,6 +9,12 @@
 #include "box.h"
 #include "image.h"
 
+//======================================================
+//		convert all box in others ROI to Left ROI
+//======================================================
+void convert_allrightbox_to_leftROI(image det, float prob, box *boxes, image *labels, int i, int obj_class, int CLS_NUM);
+void convert_alltopbox_to_rightROI(image det, float prob, box *boxes, image *labels, int i, int obj_class, int CLS_NUM);
+
 //==================================
 //		convert box to other ROI
 //==================================
@@ -49,6 +55,13 @@ void get_upbox_in_rightROI(image det, int *output, float prob, box *boxes, int i
 void get_leftbox_in_upROI(image det, int *output, float prob, box *boxes, int i);
 void get_rightbox_in_upROI(image det, int *output, float prob, box *boxes, int i);
 void get_upbox_in_upROI(image det, int *output, float prob, box *boxes, int i);
+
+//==================================
+//		get box union area
+//==================================
+float get_double_box_overlap(int lx, int rx, int ly, int ry, int *box1, int *box2);
+float get_triple_box_overlap(int lx, int rx, int ly, int ry, int *box1, int *box2, int *box3);
+
 
 #endif
 
