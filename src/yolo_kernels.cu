@@ -87,8 +87,14 @@ char fpss[20];
 cv::Mat frames[1900];
 struct timeval start_time;	
 
-int right_map[450][450][5];
-int left_map[450][450][5];
+int right_falsepositive_map[450][450][5];
+int left_falsepositive_map[450][450][5];
+
+Rect rightbox_in_left[100];
+Rect upbox_in_left[100];
+Rect leftbox_in_left[100];
+//int Rtree[10][300];	//assume there are 300 leaf box, M is 3, so level is 6
+
 
 
 //========== control parameter ==================
@@ -139,8 +145,8 @@ void *fetch_in_thread(void *Elastic)
 	int a, b, c;
 	for(a=0; a<448; a++){
 		for(b=0; b<448; b++){
-			right_map[a][b][frame_counter%5] = 0;
-			left_map[a][b][frame_counter%5] = 0;
+			right_falsepositive_map[a][b][frame_counter%5] = 0;
+			left_falsepositive_map[a][b][frame_counter%5] = 0;
 		}
 	}
 	
@@ -261,12 +267,12 @@ void *detect_in_thread_left(void *arg)
 					for(x=box_left[0]; x<box_left[1]; x++){
 						int buffer_count = 0;
 						for(j=0; j<5; j++){
-							if(left_map[y-550][x-238][j] == 1)
+							if(left_falsepositive_map[y-550][x-238][j] == 1)
 								buffer_count++;
 						}
 						if(buffer_count >= 3)
 							count++;
-						left_map[y-550][x-238][frame_counter%5] = 1;
+						left_falsepositive_map[y-550][x-238][frame_counter%5] = 1;
 					}
 				}
 				
@@ -343,6 +349,9 @@ void *detect_in_thread_right(void *arg)
 	//free_image(tmp.ROI);
 	convert_yolo_detections(predictions, l.classes, l.n, l.sqrt, l.side, 1, 1, demo_thresh_low, probs_right, boxes_right, 0);
 	if (nms > 0) do_nms(boxes_right, probs_right, l.side*l.side*l.n, l.classes, nms);
+	
+	convert_allrightbox_to_leftROI(det, rightbox_in_left, probs_right, boxes_right, l.side*l.side*l.n, CLS_NUM);
+
 
 #ifdef FALSE_POSITIVE_REMOVAL	
 	//Remove false positive
@@ -362,12 +371,12 @@ void *detect_in_thread_right(void *arg)
 					for(x=box_right[0]; x<box_right[1]; x++){
 						int buffer_count = 0;
 						for(j=0; j<5; j++){
-							if(right_map[y-630][x-1130][j] == 1)
+							if(right_falsepositive_map[y-630][x-1130][j] == 1)
 								buffer_count++;
 						}
 						if(buffer_count >= 3)
 							count++;
-						right_map[y-630][x-1130][frame_counter%5] = 1;
+						right_falsepositive_map[y-630][x-1130][frame_counter%5] = 1;
 					}
 				}
 				
@@ -480,8 +489,8 @@ extern "C" void demo_yolo(char *cfgfile, char *weightfile, float thresh, int cam
 	for(i=0; i<448; i++){
 		for(j=0; j<448; j++){
 			for(k=0; k<5; k++){
-				right_map[i][j][k] = 0;
-				left_map[i][j][k] = 0;
+				right_falsepositive_map[i][j][k] = 0;
+				left_falsepositive_map[i][j][k] = 0;
 			}
 		}
 	}
@@ -541,13 +550,13 @@ extern "C" void demo_yolo(char *cfgfile, char *weightfile, float thresh, int cam
 				thpool_wait(thpool_gpu);
 				thpool_wait(thpool_cpu);
 
-
+				
 
 #ifdef WEIGHTED_DEMORGAN_LEFT
 				Weighted_Demorgan_left(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n);
 #endif
 #ifdef WEIGHTED_POWER_DEMORGAN_LEFT
-				Weighted_Demorgan_Power_left(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n, frame_counter, left_map);
+				Weighted_Demorgan_Power_left(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n, frame_counter, left_falsepositive_map);
 #endif
 #ifdef DEMORGAN_LEFT
 				Demorgan_left(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n);
@@ -558,7 +567,7 @@ extern "C" void demo_yolo(char *cfgfile, char *weightfile, float thresh, int cam
 				Weighted_Demorgan_right(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n);
 #endif
 #ifdef WEIGHTED_POWER_DEMORGAN_RIGHT
-				Weighted_Demorgan_Power_right(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n, frame_counter, right_map);
+				Weighted_Demorgan_Power_right(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n, frame_counter, right_falsepositive_map);
 #endif
 #ifdef DEMORGAN_RIGHT
 				Demorgan_right(det, demo_thresh, demo_thresh_low, probs_right, probs_left, probs_up, boxes_right, boxes_left, boxes_up, voc_names, voc_labels, CLS_NUM, l.side*l.side*l.n);

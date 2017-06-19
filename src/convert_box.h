@@ -8,12 +8,21 @@
 #include <math.h>
 #include "box.h"
 #include "image.h"
+#include "utils.h"
 
 //======================================================
 //		convert all box in others ROI to Left ROI
 //======================================================
-void convert_allrightbox_to_leftROI(image det, float prob, box *boxes, image *labels, int i, int obj_class, int CLS_NUM);
-void convert_alltopbox_to_rightROI(image det, float prob, box *boxes, image *labels, int i, int obj_class, int CLS_NUM);
+typedef struct {
+	int left, right, top, bot;
+	int cx, cy;
+	int hilbert_value;
+	int obj_class;
+	float prob;
+} Rect;
+
+int get_hilbert_value(int cx, int cy);
+void convert_allrightbox_to_leftROI(image det, Rect *rightbox_in_left, float **probs, box *boxes, int num, int CLS_NUM);
 
 //==================================
 //		convert box to other ROI

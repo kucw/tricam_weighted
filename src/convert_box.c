@@ -6,6 +6,87 @@
 extern IplImage* image_to_Ipl(image img, int w, int h, int depth, int c, int step);
 extern image ipl_to_image(IplImage* src);
 
+void convert_allrightbox_to_leftROI(image det, Rect *rightbox_in_left, float **probs, box *boxes, int num, int CLS_NUM){
+	
+	int i;
+	for(i = 0; i < num; ++i){
+		box b = boxes[i];
+		int left,right,top,bot;
+		left  = (b.x-b.w/2.)*448;
+		right = (b.x+b.w/2.)*448;
+		top   = (b.y-b.h/2.)*448;
+		bot   = (b.y+b.h/2.)*448;
+		if(left < 0) left = 0;
+		if(right > det.w-1) right = 448-1;
+		if(top < 0) top = 0;
+		if(bot > det.h-1) bot = 448-1;
+
+		//resize the box
+		left += 1130;
+		right += 1130;
+		top += 630;
+		bot += 630;
+
+		float a1 = 4.5;
+		int b1 = -711;
+		left = (left - b1)/a1;
+		right = (right - b1)/a1;
+
+		float a2 = 4.5;
+		int b2 = -2354;
+		top = (top - b2)/a2;
+		bot = (bot - b2)/a2;
+			
+		//check if the box is in the M
+		if (right < 238 || left > 676) return ;
+
+		//clip the box
+		if (left < 238) left = 238;
+		if (right > 676) right = 676;
+		if (top < 550) top = 550;
+		if (bot > 998) bot = 998;
+	
+		int obj_class = max_index(probs[i], CLS_NUM);
+		float prob = probs[i][obj_class];
+
+		rightbox_in_left[i].left = left;
+		rightbox_in_left[i].right = right;
+		rightbox_in_left[i].top = top;
+		rightbox_in_left[i].bot = bot;
+		rightbox_in_left[i].cx = (left+right)/2;
+		rightbox_in_left[i].cy = (top+bot)/2;
+		rightbox_in_left[i].obj_class = obj_class;
+		rightbox_in_left[i].prob = prob;
+		rightbox_in_left[i].hilbert_value = get_hilbert_value(rightbox_in_left[i].cx, rightbox_in_left[i].cy);
+	}
+}
+
+int get_hilbert_value(int cx, int cy){
+	cy = 512 - cy;
+	int n = 9;
+	int x, y, s, d=0;
+	for (s=n/2; s>0; s/=2) {
+		x = (cx & s) > 0;
+		y = (cy & s) > 0;
+		d += s * s * ((3 * x) ^ y);
+		rot(s, &cx, &cy, x, y);
+	}
+	return d;
+}
+void rot(int n, int *x, int *y, int rx, int ry) {
+    if (ry == 0) {
+        if (rx == 1) {
+            *x = n-1 - *x;
+            *y = n-1 - *y;
+        }
+
+        //Swap x and y
+        int t  = *x;
+        *x = *y;
+        *y = t;
+    }
+}
+
 void convert_leftbox_to_rightROI(image det, float prob, box *boxes, image *labels, int i, int obj_class, int CLS_NUM){
 	int width = pow(prob, 1./2.)*10+1;
 	int offset = obj_class*17 % CLS_NUM;
