@@ -350,7 +350,7 @@ void *detect_in_thread_right(void *arg)
 	convert_yolo_detections(predictions, l.classes, l.n, l.sqrt, l.side, 1, 1, demo_thresh_low, probs_right, boxes_right, 0);
 	if (nms > 0) do_nms(boxes_right, probs_right, l.side*l.side*l.n, l.classes, nms);
 	
-	convert_allrightbox_to_leftROI(det, rightbox_in_left, probs_right, boxes_right, l.side*l.side*l.n, CLS_NUM);
+	convert_allrightbox_to_leftROI(det, rightbox_in_left, probs_right, boxes_right, voc_names, demo_thresh_low, l.side*l.side*l.n, CLS_NUM);
 
 
 #ifdef FALSE_POSITIVE_REMOVAL	

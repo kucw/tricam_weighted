@@ -22,7 +22,8 @@ typedef struct {
 } Rect;
 
 int get_hilbert_value(int cx, int cy);
-void convert_allrightbox_to_leftROI(image det, Rect *rightbox_in_left, float **probs, box *boxes, int num, int CLS_NUM);
+void convert_allrightbox_to_leftROI(image det, Rect *output, float **probs, box *boxes, char **names, int demo_thresh_low, int num, int CLS_NUM);
+void convert_allupbox_to_leftROI(image det, Rect *output, float **probs, box *boxes, char **names, int demo_thresh_low, int num, int CLS_NUM);
 
 //==================================
 //		convert box to other ROI
